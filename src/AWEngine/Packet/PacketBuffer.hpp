@@ -1,8 +1,5 @@
 #pragma once
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-
 #include <climits>
 #include <cstdint>
 #include <array>
@@ -20,6 +17,8 @@
 
 namespace AWEngine::Packet
 {
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
     class PacketBuffer
     {
     public:
@@ -72,11 +71,11 @@ namespace AWEngine::Packet
         }
         /// From byte array
         template<std::size_t N>
-        PacketBuffer(const std::array<uint8_t, N>& data) : PacketBuffer(data.data(), data.size()) { }
+        explicit PacketBuffer(const std::array<uint8_t, N>& data) : PacketBuffer(data.data(), data.size()) { }
         /// From byte vector
-        PacketBuffer(const std::vector<uint8_t>& data) : PacketBuffer(data.data(), data.size()) { }
+        explicit PacketBuffer(const std::vector<uint8_t>& data) : PacketBuffer(data.data(), data.size()) { }
         /// From byte vector
-        PacketBuffer(const std::vector<char>& data) : PacketBuffer(reinterpret_cast<const uint8_t*>(data.data()), data.size()) { }
+        explicit PacketBuffer(const std::vector<char>& data) : PacketBuffer(reinterpret_cast<const uint8_t*>(data.data()), data.size()) { }
 
     public:
         ~PacketBuffer() = default;
@@ -522,6 +521,5 @@ namespace AWEngine::Packet
             return buffer;
         }
     };
-}
-
 #pragma clang diagnostic pop
+}

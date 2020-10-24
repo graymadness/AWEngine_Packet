@@ -2,10 +2,34 @@
 
 #include "PacketBuffer.hpp"
 
+#include "ToClient/Ping.hpp"
+
+#include "ToServer/Pong.hpp"
+
 namespace AWEngine::Packet
 {
-    std::map<PacketID_t, PacketParser_t> IPacket::s_Packets_ToClient = {};
-    std::map<PacketID_t, PacketParser_t> IPacket::s_Packets_ToServer = {};
+    std::map<PacketID_t, PacketParser_t> IPacket::s_Packets_ToClient =  // NOLINT(cert-err58-cpp)
+    {
+            {
+                    0xFEu,
+                    ToClient::Ping::Parse
+            },
+            {
+                    0xFFu,
+                    [](PacketBuffer& buffer, PacketID_t id) -> std::shared_ptr<IPacket> { throw std::runtime_error("Attempted to parse dummy 0xFF Packet ID"); }
+            }
+    };
+    std::map<PacketID_t, PacketParser_t> IPacket::s_Packets_ToServer = // NOLINT(cert-err58-cpp)
+    {
+            {
+                    0xFEu,
+                    ToServer::Pong::Parse
+            },
+            {
+                    0xFFu,
+                    [](PacketBuffer& buffer, PacketID_t id) -> std::shared_ptr<IPacket> { throw std::runtime_error("Attempted to parse dummy 0xFF Packet ID"); }
+            }
+    };
 
     std::shared_ptr<IPacket> IPacket::Read(std::istream& in, Direction direction)
     {
