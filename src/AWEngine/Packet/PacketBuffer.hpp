@@ -25,7 +25,7 @@ namespace AWEngine::Packet
     public:
         static const std::size_t StreamEofBufferStep = 1024;
         /// 4,294,967,295
-        static const std::size_t MaxSize = std::numeric_limits<uint32_t>::max();
+        static const constexpr std::size_t MaxSize = std::numeric_limits<uint32_t>::max();
 
     public:
         /// Empty buffer
