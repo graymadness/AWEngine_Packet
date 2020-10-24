@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.16)
 project(AWEngine::Packet C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
-set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
 cmake_policy(SET CMP0077 NEW) # set() overrides option()
@@ -38,6 +37,7 @@ add_library(AWEngine_Packet STATIC ${AWE_Packet_SOURCE})
 target_include_directories(AWEngine_Packet PUBLIC src/)
 
 target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
+target_link_libraries(AWEngine_Packet Asio)
 
 #--------------------------------
 # Tests
