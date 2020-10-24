@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(AWEngine::Packet C CXX)
+project(AWEngine_Packet C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
@@ -38,12 +38,6 @@ target_include_directories(AWEngine_Packet PUBLIC src/)
 
 target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
 target_link_libraries(AWEngine_Packet Asio)
-
-#--------------------------------
-# Tests
-#--------------------------------
-
-add_library(AWEngine::Packet ALIAS AWEngine_Packet)
 
 #--------------------------------
 # Tests
