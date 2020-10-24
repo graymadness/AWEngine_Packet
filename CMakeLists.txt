@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Template C CXX)
+project(AWEngine::Packet C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(BUILD_SHARED_LIBS OFF)
@@ -32,12 +32,18 @@ add_subdirectory(lib)
 # Source
 #--------------------------------
 
-file(GLOB_RECURSE PROJECT_SOURCE src/*.hpp src/*.cpp src/*.h src/*.c)
+file(GLOB_RECURSE AWE_Packet_SOURCE src/*.hpp src/*.cpp src/*.h src/*.c)
 
-add_library(Template STATIC ${PROJECT_SOURCE})
-target_include_directories(Template PUBLIC src/)
+add_library(AWEngine_Packet STATIC ${AWE_Packet_SOURCE})
+target_include_directories(AWEngine_Packet PUBLIC src/)
 
-target_link_libraries(Template -static-libgcc -static-libstdc++ stdc++fs)
+target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
+
+#--------------------------------
+# Tests
+#--------------------------------
+
+add_library(AWEngine::Packet ALIAS AWEngine_Packet)
 
 #--------------------------------
 # Tests
