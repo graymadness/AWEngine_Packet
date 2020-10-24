@@ -116,7 +116,7 @@ namespace AWEngine::Packet
         {
             RemoveStartOffset();
 
-            if(m_Data.size() >= std::numeric_limits<uint32_t>::max())
+            if(m_Data.size() >= (std::numeric_limits<uint32_t>::max)())
                 throw std::runtime_error("Buffer is full");
 
             m_Data.emplace_back(val);
@@ -127,7 +127,7 @@ namespace AWEngine::Packet
         {
             RemoveStartOffset();
 
-            if(m_Data.size() + size > std::numeric_limits<uint32_t>::max())
+            if(m_Data.size() + size > (std::numeric_limits<uint32_t>::max)())
                 throw std::runtime_error("Buffer would be full");
 
             for(std::size_t i = 0; i < size; i++)
@@ -178,7 +178,7 @@ namespace AWEngine::Packet
         /// Peek data to raw array (read array but not remove them)
         [[nodiscard]] inline uint32_t PeekArray(uint8_t* data, uint32_t dataLength) const
         {
-            if(static_cast<uint64_t>(dataLength) + m_StartOffset > std::numeric_limits<uint32_t>::max())
+            if(static_cast<uint64_t>(dataLength) + m_StartOffset > (std::numeric_limits<uint32_t>::max)())
                 throw std::runtime_error("Too long read. Requested data length + (internal) data offset > uint32::max");
             for(std::size_t i = 0, offset = m_StartOffset; i < dataLength; i++, offset++)
             {
@@ -192,7 +192,7 @@ namespace AWEngine::Packet
         /// Peek data to raw array (read array but not remove them)
         [[nodiscard]] inline uint32_t PeekArray(uint8_t* data, uint32_t dataLength)
         {
-            if(static_cast<uint64_t>(dataLength) + m_StartOffset > std::numeric_limits<uint32_t>::max())
+            if(static_cast<uint64_t>(dataLength) + m_StartOffset > (std::numeric_limits<uint32_t>::max)())
                 RemoveStartOffset();
             for(std::size_t i = 0, offset = m_StartOffset; i < dataLength; i++, offset++)
             {
@@ -430,7 +430,7 @@ namespace AWEngine::Packet
             }
 
             std::size_t valueLength = strlen(value);
-            if(valueLength > std::numeric_limits<uint16_t>::max()) // 65,535
+            if(valueLength > (std::numeric_limits<uint16_t>::max)()) // 65,535
                 throw std::runtime_error("String is too long (exceeds uint16 limit)");
 
             // Content
@@ -446,7 +446,7 @@ namespace AWEngine::Packet
             static_assert(sizeof(char) == 1);
 
             std::size_t valueLength = value.size();
-            if(valueLength > std::numeric_limits<uint16_t>::max()) // 65,535
+            if(valueLength > (std::numeric_limits<uint16_t>::max)()) // 65,535
                 throw std::runtime_error("String is too long (exceeds uint16 limit)");
 
             buffer << static_cast<uint16_t>(valueLength); // length
@@ -494,7 +494,7 @@ namespace AWEngine::Packet
         inline friend PacketBuffer& operator<<(PacketBuffer& buffer, const std::vector<T>& value)
         {
             std::size_t valueLength = value.size();
-            if(valueLength > std::numeric_limits<uint16_t>::max()) // 65,535
+            if(valueLength > (std::numeric_limits<uint16_t>::max)()) // 65,535
                 throw std::runtime_error("Vector is too long (exceeds uint16 limit)");
 
             buffer << static_cast<uint16_t>(valueLength); // length
