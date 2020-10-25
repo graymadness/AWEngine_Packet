@@ -1,6 +1,7 @@
 #include "IPacket.hpp"
 
 #include "PacketBuffer.hpp"
+#include "PacketFlags.hpp"
 
 #include "ToClient/Ping.hpp"
 
@@ -31,22 +32,36 @@ namespace AWEngine::Packet
             }
     };
 
+    struct PacketHeader
+    {
+        PacketID_t ID;
+        uint16_t Size;
+        PacketFlags Flags;
+    };
+
     std::shared_ptr<IPacket> IPacket::Read(std::istream& in, Direction direction)
     {
         auto& packets = GetParserFromDirection(direction);
 
-        PacketID_t id;
-        in.read(reinterpret_cast<char*>(&id), sizeof(id));
+        PacketHeader header = {};
+        in.read(reinterpret_cast<char*>(&header), sizeof(PacketHeader));
+        header.Size = le16toh(header.Size);
 
-        uint32_t size;
-        in.read(reinterpret_cast<char*>(&size), sizeof(size));
-
-        if(size > PacketBuffer::MaxSize)
+        if(header.Size > PacketBuffer::MaxSize)
             throw std::runtime_error("Packet size exceeded maximum allowed size");
 
-        auto& parser = packets[id];
-        auto buffer = PacketBuffer(in, size);
+        auto& parser = packets[header.ID];
 
-        return parser(buffer, id);
+        PacketBuffer buffer;
+        if(header.Flags & PacketFlags::Compressed)
+        {
+            throw std::runtime_error("Compression is not supported at the time");
+        }
+        else
+        {
+            buffer = PacketBuffer(in, header.Size);
+        }
+
+        return parser(buffer, header.ID);
     }
 }
