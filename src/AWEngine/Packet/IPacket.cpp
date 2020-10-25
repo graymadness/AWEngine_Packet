@@ -50,8 +50,6 @@ namespace AWEngine::Packet
         if(header.Size > PacketBuffer::MaxSize)
             throw std::runtime_error("Packet size exceeded maximum allowed size");
 
-        auto& parser = packets[header.ID];
-
         PacketBuffer buffer;
         if(header.Flags & PacketFlags::Compressed)
         {
@@ -62,6 +60,8 @@ namespace AWEngine::Packet
             buffer = PacketBuffer(in, header.Size);
         }
 
+        auto& parser = packets[header.ID];
+        //TODO Check for non-existent parser + runtime_error
         return parser(buffer, header.ID);
     }
 }
