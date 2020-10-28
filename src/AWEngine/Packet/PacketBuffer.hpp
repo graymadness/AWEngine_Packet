@@ -89,6 +89,9 @@ namespace AWEngine::Packet
     public:
         [[nodiscard]] inline const uint8_t* data() const noexcept { return m_Data.data() + m_StartOffset; }
         [[nodiscard]] inline uint32_t size() const noexcept { return m_Data.size() - m_StartOffset; }
+        [[nodiscard]] inline const std::vector<uint8_t>& Buffer() const noexcept { return m_Data; }
+        inline uint8_t& operator[](std::size_t index) { return m_Data[index]; };
+        inline const uint8_t& operator[](std::size_t index) const { return m_Data[index]; };
 
     public:
         inline friend std::ostream& operator<<(std::ostream& out, PacketBuffer& buffer)
