@@ -256,7 +256,7 @@ namespace AWEngine::Packet
 
             value = htole16(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
-                buffer.Write(reinterpret_cast<const uint8_t*>(value)[i]);
+                buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
             return buffer;
         }
@@ -266,7 +266,7 @@ namespace AWEngine::Packet
 
             uint16_t v = htole16(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
-                buffer.Write(reinterpret_cast<const uint8_t*>(v)[i]);
+                buffer.Write(reinterpret_cast<const uint8_t*>(&v)[i]);
 
             return buffer;
         }
@@ -300,7 +300,7 @@ namespace AWEngine::Packet
 
             value = htole32(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
-                buffer.Write(reinterpret_cast<const uint8_t*>(value)[i]);
+                buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
             return buffer;
         }
@@ -310,7 +310,7 @@ namespace AWEngine::Packet
 
             value = htole32(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
-                buffer.Write(reinterpret_cast<const uint8_t*>(value)[i]);
+                buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
             return buffer;
         }
@@ -344,7 +344,7 @@ namespace AWEngine::Packet
 
             value = htole64(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
-                buffer.Write(reinterpret_cast<const uint8_t*>(value)[i]);
+                buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
             return buffer;
         }
@@ -354,7 +354,7 @@ namespace AWEngine::Packet
 
             value = htole64(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
-                buffer.Write(reinterpret_cast<const uint8_t*>(value)[i]);
+                buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
             return buffer;
         }
@@ -365,7 +365,7 @@ namespace AWEngine::Packet
             uint64_t v = 0;
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&v)[i] = buffer.Read();
-            value = le32toh(v);
+            value = le64toh(v);
 
             return buffer;
         }
@@ -375,7 +375,7 @@ namespace AWEngine::Packet
 
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&value)[i] = buffer.Read();
-            value = le32toh(value);
+            value = le64toh(value);
 
             return buffer;
         }
@@ -394,7 +394,7 @@ namespace AWEngine::Packet
 
             uint32_t v = 0;
             buffer >> v;
-            value = *reinterpret_cast<const float*>(v);
+            value = *reinterpret_cast<const float*>(&v);
 
             return buffer;
         }
@@ -405,7 +405,10 @@ namespace AWEngine::Packet
         {
             static_assert(sizeof(value) == 8);
 
-            return buffer << *reinterpret_cast<const uint32_t*>(&value);
+            uint64_t v =  *reinterpret_cast<const uint64_t*>(&value);
+            buffer << v;
+
+            return buffer;
         }
         inline friend PacketBuffer& operator>>(PacketBuffer& buffer, double& value)
         {
@@ -413,7 +416,8 @@ namespace AWEngine::Packet
 
             uint64_t v = 0;
             buffer >> v;
-            value = *reinterpret_cast<const double*>(v);
+
+            value = *reinterpret_cast<const double*>(&v);
 
             return buffer;
         }
