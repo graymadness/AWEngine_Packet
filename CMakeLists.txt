@@ -37,7 +37,7 @@ add_library(AWEngine_Packet STATIC ${AWE_Packet_SOURCE})
 target_include_directories(AWEngine_Packet PUBLIC src/)
 
 target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
-target_link_libraries(AWEngine_Packet Asio)
+target_link_libraries(AWEngine_Packet asio)
 
 #--------------------------------
 # Tests
