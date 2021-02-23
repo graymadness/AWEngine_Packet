@@ -6,7 +6,7 @@
 
 namespace AWEngine::Packet::ToClient
 {
-    class Ping : public IPacket
+    AWE_PACKET(Ping)
     {
     public:
         explicit Ping(uint64_t payload)

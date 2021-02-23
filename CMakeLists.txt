@@ -39,6 +39,13 @@ target_include_directories(AWEngine_Packet PUBLIC src/)
 target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
 target_link_libraries(AWEngine_Packet asio)
 
+if(MSVC)
+    target_compile_options(AWEngine_Packet PRIVATE /FI"${PROJECT_SOURCE_DIR}/src/AWEngine/Util/Core.hpp")
+else()
+    # GCC or Clang
+    target_compile_options(AWEngine_Packet PRIVATE -include ${PROJECT_SOURCE_DIR}/src/AWEngine/Util/Core.hpp)
+endif()
+
 #--------------------------------
 # Tests
 #--------------------------------

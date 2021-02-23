@@ -7,7 +7,7 @@
 
 namespace AWEngine::Packet
 {
-    class TcpClient
+    AWE_CLASS(TcpClient)
     {
     public:
         explicit TcpClient(const std::string& host = "localhost", const uint16_t port = 10101)

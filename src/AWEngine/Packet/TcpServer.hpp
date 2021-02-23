@@ -11,7 +11,7 @@ namespace AWEngine::Packet
 {
     typedef std::function<bool(asio::ip::tcp::socket)> AcceptCallback_t;
 
-    class TcpServer
+    AWE_CLASS(TcpServer)
     {
     public:
         static const uint16_t DefaultPort = 10101;
@@ -86,11 +86,16 @@ namespace AWEngine::Packet
             m_Acceptor.async_accept(
                     [this](std::error_code ec, asio::ip::tcp::socket socket)
                     {
+                        // Wait for another connection...
+                        // not a recursion! (calling async function)
+                        WaitForClientConnection();
+
                         if (ec)
                         {
 #ifdef DEBUG
                             std::cerr << m_ServerPrefix << ": New Connection Error: " << ec.message() << std::endl;
 #endif
+                            return;
                         }
                         else
                         {
@@ -100,23 +105,31 @@ namespace AWEngine::Packet
                             std::cout << m_ServerPrefix << ": New Connection from " << remote_endpoint << std::endl;
 #endif
 
-                            if(m_AcceptCallback(std::move(socket)))
+                            try
                             {
+                                if(m_AcceptCallback(std::move(socket)))
+                                {
 #ifdef DEBUG
-                                std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " approved" << std::endl;
+                                    std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " approved" << std::endl;
 #endif
+                                    return;
+                                }
+                                else
+                                {
+#ifdef DEBUG
+                                    std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " denied" << std::endl;
+#endif
+                                    return;
+                                }
                             }
-                            else
+                            catch(std::exception& ex)
                             {
 #ifdef DEBUG
-                                std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " discarded" << std::endl;
+                                std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " denied by exception" << std::endl;
 #endif
+                                return;
                             }
                         }
-
-                        // Wait for another connection...
-                        // not a recursion! (calling async function)
-                        WaitForClientConnection();
                     });
         }
     };

@@ -48,3 +48,7 @@ namespace AWEngine::Packet
     };
 #pragma clang diagnostic pop
 }
+
+#ifndef AWE_PACKET
+    #define AWE_PACKET(awe_name) class awe_name : public ::AWEngine::Packet::IPacket
+#endif

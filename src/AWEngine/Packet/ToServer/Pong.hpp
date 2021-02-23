@@ -4,7 +4,7 @@
 
 namespace AWEngine::Packet::ToServer
 {
-    class Pong : public IPacket
+    AWE_PACKET(Pong)
     {
     public:
         explicit Pong(uint64_t payload)
