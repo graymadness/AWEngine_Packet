@@ -9,7 +9,7 @@
 
 namespace AWEngine
 {
-    typedef std::function<bool(asio::ip::tcp::socket)> AcceptCallback_t;
+    typedef std::function<bool(asio::ip::tcp::socket, std::size_t)> AcceptCallback_t;
 
     /// TCP Server/Host
     /// Has public IP and waits for connections to arrive
@@ -19,14 +19,13 @@ namespace AWEngine
         static const uint16_t DefaultPort = 10101;
 
     public:
-        explicit TcpServer(AcceptCallback_t acceptCallback, const uint16_t port = DefaultPort)
-                : m_AcceptCallback(std::move(acceptCallback)),
-                  m_Port(port),
-                  m_Context(),
-                  m_Acceptor(m_Context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
-                  m_ServerPrefix("Server [" + std::to_string(m_Port) + "]")
-        {
-        }
+        TcpServer(const std::string& name, AcceptCallback_t acceptCallback, const std::vector<asio::ip::tcp::endpoint>& endpoint);
+        inline TcpServer(const std::string& name, AcceptCallback_t acceptCallback, const asio::ip::tcp::endpoint& endpoint)                      : TcpServer(name, std::move(acceptCallback), std::vector<asio::ip::tcp::endpoint>({endpoint})) {}
+        inline TcpServer(const std::string& name, AcceptCallback_t acceptCallback, const asio::ip::address_v4& ip4, uint16_t port = DefaultPort) : TcpServer(name, std::move(acceptCallback), asio::ip::tcp::endpoint(ip4, port)) {}
+        inline TcpServer(const std::string& name, AcceptCallback_t acceptCallback, const asio::ip::address_v6& ip6, uint16_t port = DefaultPort) : TcpServer(name, std::move(acceptCallback), asio::ip::tcp::endpoint(ip6, port)) {}
+        inline TcpServer(const std::string& name, AcceptCallback_t acceptCallback, const asio::ip::address& ip, uint16_t port = DefaultPort)     : TcpServer(name, std::move(acceptCallback), asio::ip::tcp::endpoint(ip,  port)) {}
+        inline TcpServer(const std::string& name, AcceptCallback_t acceptCallback, uint16_t port = DefaultPort)                                  : TcpServer(name, std::move(acceptCallback), std::vector<asio::ip::tcp::endpoint>({ {asio::ip::tcp::v4(), port}, {asio::ip::tcp::v6(), port} })) {}
+        inline TcpServer(const std::string& name, AcceptCallback_t acceptCallback, const std::string& host, uint16_t port = DefaultPort);
 
     public:
         ~TcpServer()
@@ -36,11 +35,14 @@ namespace AWEngine
 
     private:
         AcceptCallback_t m_AcceptCallback;
-        const uint16_t m_Port;
+    public:
+        [[nodiscard]] inline const AcceptCallback_t& AcceptCallback()                       const noexcept { return m_AcceptCallback; }
+                      inline       void              AcceptCallback(AcceptCallback_t value)       noexcept { m_AcceptCallback = std::move(value); }
     private:
+        const std::vector<asio::ip::tcp::endpoint> m_Endpoints;
         asio::io_context m_Context;
         std::thread m_ThreadContext;
-        asio::ip::tcp::acceptor m_Acceptor;
+        std::vector<asio::ip::tcp::acceptor> m_Acceptors;
     public:
         [[nodiscard]] inline const asio::io_context& Context() const noexcept { return m_Context; }
 
@@ -49,90 +51,17 @@ namespace AWEngine
     public:
         [[nodiscard]] inline const std::string& ServerPrefix() const noexcept { return m_ServerPrefix; }
 
+    private:
+        bool m_Running = false;
     public:
-        bool Start()
-        {
-            try
-            {
-                WaitForClientConnection();
-
-                m_ThreadContext = std::thread([this]() { m_Context.run(); });
-            }
-            catch (std::exception& e)
-            {
-                std::cerr << m_ServerPrefix << ": Server start exception: " << e.what() << std::endl;
-                return false;
-            }
-
-            std::cout << m_ServerPrefix << ": Server started" << std::endl;
-            return true;
-        }
-
-        void Stop()
-        {
-            m_Context.stop();
-
-            if (m_ThreadContext.joinable())
-                m_ThreadContext.join();
-
-#ifdef DEBUG
-            std::cout << m_ServerPrefix << ": stopped." << std::endl;
-#endif
-        }
+        [[nodiscard]] inline bool IsRunning() const noexcept { return m_Running; }
+    public:
+        bool Start();
+        void Stop();
 
     private:
         /// Async
         /// Asio will wait for connection and call m_AcceptCallback before calling itself again
-        void WaitForClientConnection()
-        {
-            m_Acceptor.async_accept(
-                    [this](std::error_code ec, asio::ip::tcp::socket socket)
-                    {
-                        // Wait for another connection...
-                        // not a recursion! (calling async function)
-                        WaitForClientConnection();
-
-                        if (ec)
-                        {
-#ifdef DEBUG
-                            std::cerr << m_ServerPrefix << ": New Connection Error: " << ec.message() << std::endl;
-#endif
-                            return;
-                        }
-                        else
-                        {
-                            auto remote_endpoint = socket.remote_endpoint();
-
-#ifdef DEBUG
-                            std::cout << m_ServerPrefix << ": New Connection from " << remote_endpoint << std::endl;
-#endif
-
-                            try
-                            {
-                                if(m_AcceptCallback(std::move(socket)))
-                                {
-#ifdef DEBUG
-                                    std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " approved" << std::endl;
-#endif
-                                    return;
-                                }
-                                else
-                                {
-#ifdef DEBUG
-                                    std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " denied" << std::endl;
-#endif
-                                    return;
-                                }
-                            }
-                            catch(std::exception& ex)
-                            {
-#ifdef DEBUG
-                                std::cout << m_ServerPrefix << ": Connection from " << remote_endpoint << " denied by exception" << std::endl;
-#endif
-                                return;
-                            }
-                        }
-                    });
-        }
+        void WaitForClientConnection(std::size_t acceptorIndex);
     };
 }
