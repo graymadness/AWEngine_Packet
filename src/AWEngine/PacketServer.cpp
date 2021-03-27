@@ -1,19 +1,19 @@
 #include <iomanip>
 #include "PacketServer.hpp"
 
-#include "PacketBuffer.hpp"
-#include "IPacket.hpp"
+#include <AWEngine/Packet/PacketBuffer.hpp>
+#include <AWEngine/Packet/IPacket.hpp>
 
-namespace AWEngine::Packet
+namespace AWEngine
 {
     template<typename TPlayer>
-    void PacketServer<TPlayer>::Player_t::SendPacket(const std::shared_ptr<IPacket>& packet)
+    void PacketServer<TPlayer>::Player_t::SendPacket(const Packet::IPacket_uptr& packet, Packet::PacketID_t packetId)
     {
         if(m_Server == nullptr)
             throw std::runtime_error("Failed to send packet - NULL server");
 
-        PacketBuffer buffer;
-        buffer << packet->m_ID;
+        Packet::PacketBuffer buffer;
+        buffer << packetId;
         buffer << static_cast<uint16_t>(0); // placeholder for size
         buffer << static_cast<uint8_t>(0); // PacketFlags
 

@@ -5,8 +5,9 @@
 #include <asio.hpp>
 #include <iostream>
 
-namespace AWEngine::Packet
+namespace AWEngine
 {
+    /// Client which connects to Server using TCP
     AWE_CLASS(TcpClient)
     {
     public:

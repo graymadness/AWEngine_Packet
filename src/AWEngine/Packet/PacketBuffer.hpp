@@ -17,9 +17,7 @@
 
 namespace AWEngine::Packet
 {
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-    class PacketBuffer
+    AWE_CLASS(PacketBuffer)
     {
     public:
         static const std::size_t StreamEofBufferStep = 1024;
@@ -32,36 +30,15 @@ namespace AWEngine::Packet
         /// Read `in` until EOF is reached
         explicit PacketBuffer(std::istream& in)
         {
-            std::size_t size = 0;
-            std::size_t size_old;
-            while(true)
-            {
-                // Read data by `StreamEofBufferStep` segments
-                size_old = size;
-                size += StreamEofBufferStep;
-                m_Data.resize(size);
-                in.read(reinterpret_cast<char*>(m_Data.data() + size_old), StreamEofBufferStep);
-
-                if(in.eof())
-                {
-                    m_Data.resize(size_old + in.gcount()); // Discard memory to which was not written
-                    break;
-                }
-            }
+            Load(in);
         }
         /// Read `in` for specified number of chars
-        PacketBuffer(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
+        inline PacketBuffer(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
         {
-            m_Data.resize(byteLength);
-            in.read(reinterpret_cast<char*>(m_Data.data()), byteLength);
-
-            m_Data.resize(in.gcount());
-
-            if(in.eof() && exceptionOnLessChars)
-                throw std::runtime_error("Stream ended too soon");
+            Load(in, byteLength, exceptionOnLessChars);
         }
         /// From byte array
-        PacketBuffer(const uint8_t* array, std::size_t arraySize)
+        inline PacketBuffer(const uint8_t* array, std::size_t arraySize)
         {
             if(arraySize > MaxSize)
                 throw std::runtime_error("Source byte array is too big");
@@ -71,11 +48,11 @@ namespace AWEngine::Packet
         }
         /// From byte array
         template<std::size_t N>
-        explicit PacketBuffer(const std::array<uint8_t, N>& data) : PacketBuffer(data.data(), data.size()) { }
+        inline explicit PacketBuffer(const std::array<uint8_t, N>& data) : PacketBuffer(data.data(), N) { }
         /// From byte vector
-        explicit PacketBuffer(const std::vector<uint8_t>& data) : PacketBuffer(data.data(), data.size()) { }
+        inline explicit PacketBuffer(const std::vector<uint8_t>& data) : PacketBuffer(data.data(), data.size()) { }
         /// From byte vector
-        explicit PacketBuffer(const std::vector<char>& data) : PacketBuffer(reinterpret_cast<const uint8_t*>(data.data()), data.size()) { }
+        inline explicit PacketBuffer(const std::vector<char>& data) : PacketBuffer(reinterpret_cast<const uint8_t*>(data.data()), data.size()) { }
 
     public:
         ~PacketBuffer() = default;
@@ -89,16 +66,15 @@ namespace AWEngine::Packet
     public:
         [[nodiscard]] inline const uint8_t* data() const noexcept { return m_Data.data() + m_StartOffset; }
         [[nodiscard]] inline uint32_t size() const noexcept { return m_Data.size() - m_StartOffset; }
+        [[nodiscard]] inline bool empty() const noexcept { return size() <= 0; }
         [[nodiscard]] inline const std::vector<uint8_t>& Buffer() const noexcept { return m_Data; }
-        inline uint8_t& operator[](std::size_t index) { return m_Data[index]; };
-        inline const uint8_t& operator[](std::size_t index) const { return m_Data[index]; };
+        inline uint8_t& operator[](std::size_t index) { return m_Data[index < 0 ? -1 : index + m_StartOffset]; };
+        inline const uint8_t& operator[](std::size_t index) const { return m_Data[index < 0 ? -1 : index + m_StartOffset]; };
 
     public:
-        inline friend std::ostream& operator<<(std::ostream& out, PacketBuffer& buffer)
+        inline friend std::ostream& operator<<(std::ostream& out, const PacketBuffer& buffer)
         {
-            out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-
-            return out;
+            return out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
         }
 
     private:
@@ -109,6 +85,70 @@ namespace AWEngine::Packet
                 m_Data.erase(m_Data.begin(), m_Data.begin() + m_StartOffset);
                 m_StartOffset = 0;
             }
+        }
+
+    public:
+        inline void Clear()
+        {
+            m_StartOffset = 0;
+            m_Data.clear();
+        }
+        inline void Load(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
+        {
+            if(!in.good())
+                throw std::runtime_error("Input stream is not in a good shape");
+
+            std::size_t size_old = m_Data.size();
+            m_Data.resize(size_old + byteLength);
+            in.read(reinterpret_cast<char*>(m_Data.data()), byteLength);
+
+            if(!in.good() && !in.eof())
+                throw std::runtime_error("Input stream is not in a good shape after read");
+
+            if(exceptionOnLessChars)
+            {
+                if(in.eof() || in.gcount() != byteLength)
+                    throw std::runtime_error("Stream ended too soon");
+            }
+            else
+            {
+                if(in.gcount() != byteLength)
+                    m_Data.resize(size_old + in.gcount());
+            }
+        }
+        inline void Load(std::istream& in)
+        {
+            if(!in.good())
+                throw std::runtime_error("Input stream is not in a good shape");
+
+            std::size_t size = 0, size_old;
+            while(true)
+            {
+                // Read data by `StreamEofBufferStep` segments
+                size_old = size;
+                size += StreamEofBufferStep;
+                m_Data.resize(size);
+                in.read(reinterpret_cast<char*>(m_Data.data() + size_old), StreamEofBufferStep);
+
+                if(!in.good() && !in.eof())
+                    throw std::runtime_error("Input stream is not in a good shape after read");
+
+                if(in.eof() || in.gcount() != StreamEofBufferStep)
+                {
+                    m_Data.resize(size_old + in.gcount()); // Discard memory to which was not written
+                    break;
+                }
+            }
+        }
+        inline void ClearAndLoad(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
+        {
+            Clear();
+            Load(in, byteLength, exceptionOnLessChars);
+        }
+        inline void ClearAndLoad(std::istream& in)
+        {
+            Clear();
+            Load(in);
         }
 
     // Write
@@ -494,6 +534,26 @@ namespace AWEngine::Packet
             return buffer;
         }
 
+    // fixed-size array
+    public:
+        template<typename T, std::size_t N>
+        inline friend PacketBuffer& operator<<(PacketBuffer& buffer, const std::array<T, N>& value)
+        {
+            // Content
+            for(std::size_t i = 0; i < N; i++)
+                buffer << value[i];
+
+            return buffer;
+        }
+        template<typename T, std::size_t N>
+        inline friend PacketBuffer& operator>>(PacketBuffer& buffer, std::array<T, N>& value)
+        {
+            if(N != buffer.ReadArray(reinterpret_cast<uint8_t*>(value.data()), N))
+                throw std::runtime_error("There were not data for whole array (length pointed outside of buffer)");
+
+            return buffer;
+        }
+
     // array
     public:
         template<typename T>
@@ -519,14 +579,11 @@ namespace AWEngine::Packet
 
             std::size_t byteSize = length * sizeof(T);
 
-            std::vector<T> arr(length);
-            if(byteSize != buffer.ReadArray(reinterpret_cast<uint8_t*>(arr), byteSize))
+            value.resize(byteSize);
+            if(byteSize != buffer.ReadArray(reinterpret_cast<uint8_t*>(value.data()), byteSize))
                 throw std::runtime_error("There were not data for whole array (length pointed outside of buffer)");
-
-            value = arr;
 
             return buffer;
         }
     };
-#pragma clang diagnostic pop
 }
