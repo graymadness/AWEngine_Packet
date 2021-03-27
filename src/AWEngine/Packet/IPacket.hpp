@@ -6,49 +6,46 @@
 
 #include "Direction.hpp"
 #include "PacketBuffer.hpp"
+#include "PacketFlags.hpp"
 
 namespace AWEngine::Packet
 {
-    class IPacket;
+    AWE_CLASS_UPTR(IPacket);
 
     typedef uint8_t PacketID_t;
-    typedef std::function<std::shared_ptr<IPacket>(PacketBuffer&, PacketID_t)> PacketParser_t;
+    typedef std::function<IPacket_uptr(PacketBuffer&, PacketID_t)> PacketParser_t;
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-    class IPacket
+    AWE_STRUCT(PacketHeader)
+    {
+        PacketID_t ID;
+        uint16_t Size;
+        PacketFlags Flags;
+    };
+
+    AWE_CLASS_UPTR(IPacket)
     {
     public:
-        IPacket(Direction destination, PacketID_t id)
-         : m_Destination(destination), m_ID(id)
-        {
-        }
+        explicit IPacket() = default;
+        explicit IPacket(PacketBuffer& in) {}
 
-    public:
         virtual ~IPacket() = default;
 
     public:
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-        const Direction m_Destination;
-        const PacketID_t m_ID;
-#pragma clang diagnostic pop
+        virtual void Write(PacketBuffer& out) const = 0;
 
     public:
-        virtual void Write(PacketBuffer& buffer) const = 0;
-
-    public:
-        static std::shared_ptr<IPacket> Read(std::istream& in, Direction direction);
-        static void RegisterParser(Direction direction, PacketID_t id, const PacketParser_t& parser) { GetParserFromDirection(direction).emplace(id, parser); }
-    private:
-        static std::map<PacketID_t, PacketParser_t> s_Packets_ToClient;
-        static std::map<PacketID_t, PacketParser_t> s_Packets_ToServer;
-        static std::map<PacketID_t, PacketParser_t>& GetParserFromDirection(Direction direction) { return direction == Direction::ToClient ? s_Packets_ToClient : s_Packets_ToServer; }
-
+        /// Read packet header and rest of packet into `buffer`
+        /// Returns whenever `header` was read successfully, states nothing about `buffer`
+        /// Packet should be discarded if `buffer.empty()`
+        static bool ReadPacket(std::istream& in, PacketHeader& header, PacketBuffer& buffer) noexcept;
+        static void WritePacket(std::ostream& out, PacketID_t packetID, const PacketBuffer& buffer);
     };
-#pragma clang diagnostic pop
 }
 
 #ifndef AWE_PACKET
-    #define AWE_PACKET(awe_name) class awe_name : public ::AWEngine::Packet::IPacket
+#   define AWE_PACKET(packet_name) AWE_CLASS_PTR(packet_name) : public ::AWEngine::Packet::IPacket
+#endif
+
+#ifndef AWE_PACKET_PARSER
+#   define AWE_PACKET_PARSER(packet_name) [](PacketBuffer& in, PacketID_t id) -> IPacket_uptr { return std::make_shared<packet_name>(in); }
 #endif

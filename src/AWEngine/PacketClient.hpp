@@ -2,7 +2,7 @@
 
 #include "TcpClient.hpp"
 
-namespace AWEngine::Packet
+namespace AWEngine
 {
     class IPacket;
 

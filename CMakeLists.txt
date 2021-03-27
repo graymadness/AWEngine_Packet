@@ -13,12 +13,19 @@ cmake_policy(SET CMP0077 NEW) # set() overrides option()
 add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>") # Define DEBUG in Debug builds
 
 #--------------------------------
-# Compiler configuration
+# Configuration
 #--------------------------------
 
 if(MINGW)
     ADD_COMPILE_OPTIONS(-lstdc++fs)
     set(WIN32 ON)
+endif()
+
+if(TARGET nlohmann_json)
+    message(NOTICE "nlohmann's JSON library detected")
+
+    set(AWE_PACKET_LIB_JSON=ON)
+    add_compile_definitions(AWE_PACKET_LIB_JSON=ON)
 endif()
 
 #--------------------------------
@@ -38,6 +45,10 @@ target_include_directories(AWEngine_Packet PUBLIC src/)
 
 target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
 target_link_libraries(AWEngine_Packet asio)
+
+if(AWE_PACKET_LIB_JSON)
+    target_link_libraries(AWEngine_Packet nlohmann_json)
+endif()
 
 if(MSVC)
     target_compile_options(AWEngine_Packet PRIVATE /FI"${PROJECT_SOURCE_DIR}/src/AWEngine/Util/Core.hpp")

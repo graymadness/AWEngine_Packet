@@ -7,10 +7,12 @@
 #include <functional>
 #include <utility>
 
-namespace AWEngine::Packet
+namespace AWEngine
 {
     typedef std::function<bool(asio::ip::tcp::socket)> AcceptCallback_t;
 
+    /// TCP Server/Host
+    /// Has public IP and waits for connections to arrive
     AWE_CLASS(TcpServer)
     {
     public:

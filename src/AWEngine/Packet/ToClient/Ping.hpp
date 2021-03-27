@@ -10,8 +10,7 @@ namespace AWEngine::Packet::ToClient
     {
     public:
         explicit Ping(uint64_t payload)
-                : IPacket(Direction::ToClient, 0xFEu),
-                  m_Payload(payload)
+                : m_Payload(payload)
         {
         }
         /// New instance with current time
@@ -20,22 +19,18 @@ namespace AWEngine::Packet::ToClient
         {
         }
 
+        explicit Ping(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
+        {
+            in >> m_Payload;
+        }
+
     public:
         uint64_t m_Payload;
 
     public:
-        void Write(PacketBuffer &buffer) const override
+        void Write(PacketBuffer& out) const override
         {
-            buffer << static_cast<uint64_t>(m_Payload);
-        }
-
-    public:
-        static std::shared_ptr<IPacket> Parse(PacketBuffer& buffer, PacketID_t id)
-        {
-            uint64_t payload;
-            buffer >> payload;
-
-            return std::make_shared<Ping>(payload);
+            out << static_cast<uint64_t>(m_Payload);
         }
     };
 }
