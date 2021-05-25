@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../IPacket.hpp"
+#include <AWEngine/Packet/IPacket.hpp>
 
 namespace AWEngine::Packet::ToServer
 {
-    AWE_PACKET(Pong)
+    AWE_PACKET(Pong, ToServer, 0xFE)
     {
     public:
         explicit Pong(uint64_t payload)

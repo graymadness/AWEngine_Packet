@@ -1,4 +1,5 @@
 #pragma once
+#include <AWEngine/Util/Core_Packet.hpp>
 
 #include "TcpClient.hpp"
 

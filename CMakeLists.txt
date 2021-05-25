@@ -21,13 +21,6 @@ if(MINGW)
     set(WIN32 ON)
 endif()
 
-if(TARGET nlohmann_json)
-    message(NOTICE "nlohmann's JSON library detected")
-
-    set(AWE_PACKET_LIB_JSON=ON)
-    add_compile_definitions(AWE_PACKET_LIB_JSON=ON)
-endif()
-
 #--------------------------------
 # External libraries
 #--------------------------------
@@ -43,18 +36,39 @@ file(GLOB_RECURSE AWE_Packet_SOURCE src/*.hpp src/*.cpp src/*.h src/*.c)
 add_library(AWEngine_Packet STATIC ${AWE_Packet_SOURCE})
 target_include_directories(AWEngine_Packet PUBLIC src/)
 
-target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
 target_link_libraries(AWEngine_Packet asio)
 
-if(AWE_PACKET_LIB_JSON)
+if(GCC)
+    target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
+endif()
+
+# JSON Support
+if(TARGET nlohmann_json)
+    message(NOTICE "nlohmann's JSON library detected")
+
+    set(AWE_PACKET_LIB_JSON=ON)
+    target_compile_definitions(AWEngine_Packet AWE_PACKET_LIB_JSON=ON)
     target_link_libraries(AWEngine_Packet nlohmann_json)
 endif()
 
-if(MSVC)
-    target_compile_options(AWEngine_Packet PRIVATE /FI"${PROJECT_SOURCE_DIR}/src/AWEngine/Util/Core.hpp")
-else()
-    # GCC or Clang
-    target_compile_options(AWEngine_Packet PRIVATE -include ${PROJECT_SOURCE_DIR}/src/AWEngine/Util/Core.hpp)
+# Protocol Version
+if(DEFINED AWE_PACKET_PROTOCOL_VERSION)
+    if(AWE_PACKET_PROTOCOL_VERSION MATCHES "^[0-9]+$")
+        message(NOTICE "Protocol Version set to ${AWE_PACKET_PROTOCOL_VERSION}")
+        target_compile_definitions(AWEngine_Packet AWE_PACKET_PROTOCOL_VERSION=${AWE_PACKET_PROTOCOL_VERSION})
+    else()
+        message(FATAL_ERROR "Invalid Protocol Version '${AWE_PACKET_PROTOCOL_VERSION}' - only numeric value is allowed")
+    endif()
+endif()
+
+# Game Name
+if(DEFINED AWE_PACKET_GAME_NAME)
+    if(AWE_PACKET_GAME_NAME MATCHES "^[A-Z]+$")
+        message(NOTICE "Protocol Version set to ${AWE_PACKET_GAME_NAME}")
+        target_compile_definitions(AWEngine_Packet AWE_PACKET_GAME_NAME="${AWE_PACKET_GAME_NAME}")
+    else()
+        message(FATAL_ERROR "Invalid Protocol Game Name '${AWE_PACKET_GAME_NAME}' - use only UPPER CASE letters")
+    endif()
 endif()
 
 #--------------------------------
