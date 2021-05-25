@@ -1,9 +1,12 @@
 #pragma once
+#include <AWEngine/Util/Core_Packet.hpp>
 
 #include <string>
+#include <iostream>
 
 #include <asio.hpp>
-#include <iostream>
+
+#include <AWEngine/Packet/ProtocolInfo.hpp>
 
 namespace AWEngine
 {
@@ -11,12 +14,9 @@ namespace AWEngine
     AWE_CLASS(TcpClient)
     {
     public:
-        static const uint16_t DefaultPort = 10101;
-
-    public:
-        explicit TcpClient(const std::string& host = "localhost", uint16_t port = DefaultPort);
+        explicit TcpClient(const std::string& host = "localhost", uint16_t port = ::AWEngine::Packet::ProtocolInfo::DefaultPort);
         explicit TcpClient(const asio::ip::tcp::endpoint& endpoint);
-        inline  TcpClient(const asio::ip::address& address, uint16_t port = DefaultPort) : TcpClient(asio::ip::tcp::endpoint(address, port)) {}
+        inline explicit TcpClient(const asio::ip::address& address, uint16_t port = ::AWEngine::Packet::ProtocolInfo::DefaultPort) : TcpClient(asio::ip::tcp::endpoint(address, port)) {}
 
     public:
         ~TcpClient()

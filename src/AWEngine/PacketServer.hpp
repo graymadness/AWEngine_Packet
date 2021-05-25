@@ -1,10 +1,12 @@
 #pragma once
+#include <AWEngine/Util/Core_Packet.hpp>
 
 #include <queue>
 
 #include "TcpServer.hpp"
 #include <AWEngine/Packet/IPacket.hpp>
 #include <AWEngine/Util/ThreadSafeQueue.h>
+#include <AWEngine/Packet/ProtocolInfo.hpp>
 
 namespace AWEngine
 {
@@ -15,18 +17,13 @@ namespace AWEngine
     class PacketServer : public std::enable_shared_from_this<PacketServer<TPlayer>>
     {
     public:
-        typedef std::map<uint32_t, std::array<Packet::PacketParser_t, 256>> VersionedPacketDefineMap_t;
-    public:
         explicit PacketServer(
-                const uint16_t port,
                 const uint16_t maxPlayerCount,
-                VersionedPacketDefineMap_t toClient,
-                VersionedPacketDefineMap_t toServer
+                const uint16_t port = ::AWEngine::Packet::ProtocolInfo::DefaultPort
+
         )
-            : m_TcpServer(AcceptCallback, port),
-              m_Players(maxPlayerCount),
-              m_ToClient(std::move(toClient)),
-              m_ToServer(std::move(toServer))
+            : m_Players(maxPlayerCount),
+            m_TcpServer(AcceptCallback, port)
         {
             for(uint16_t slotIndex = 0; slotIndex < maxPlayerCount; slotIndex++)
                 m_EmptyPlayerSlots.push(slotIndex);
@@ -34,10 +31,6 @@ namespace AWEngine
 
     public:
         ~PacketServer() = default;
-
-    private:
-        VersionedPacketDefineMap_t m_ToClient;
-        VersionedPacketDefineMap_t m_ToServer;
 
     public:
         struct Player_t : public std::enable_shared_from_this<Player_t>

@@ -2,11 +2,11 @@
 
 #include <chrono>
 
-#include "../../IPacket.hpp"
+#include <AWEngine/Packet/IPacket.hpp>
 
 namespace AWEngine::Packet::ToServer::Login
 {
-    AWE_PACKET(Init)
+    AWE_PACKET(Init, ToServer, 0x00)
     {
     public:
         AWE_ENUM(NextStep, uint8_t)
@@ -35,6 +35,15 @@ namespace AWEngine::Packet::ToServer::Login
         )
                 :  GameName(gameName),
                    ProtocolVersion(protocolVersion),
+                   Next(next)
+        {
+        }
+        explicit Init(
+                std::array<char, 8> gameName,
+                NextStep next
+        )
+                :  GameName(gameName),
+                   ProtocolVersion(ProtocolInfo::ProtocolVersion),
                    Next(next)
         {
         }

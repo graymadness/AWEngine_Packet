@@ -1,4 +1,5 @@
 #pragma once
+#include <AWEngine/Util/Core_Packet.hpp>
 
 #include <climits>
 #include <cstdint>
@@ -13,7 +14,7 @@
     #error "unsupported char size"
 #endif
 
-#include "../../portable_endian.h"
+#include <portable_endian.h>
 
 namespace AWEngine::Packet
 {

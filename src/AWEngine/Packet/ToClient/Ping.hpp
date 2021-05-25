@@ -2,11 +2,11 @@
 
 #include <chrono>
 
-#include "../IPacket.hpp"
+#include <AWEngine/Packet/IPacket.hpp>
 
 namespace AWEngine::Packet::ToClient
 {
-    AWE_PACKET(Ping)
+    AWE_PACKET(Ping, ToClient, 0xFE)
     {
     public:
         explicit Ping(uint64_t payload)

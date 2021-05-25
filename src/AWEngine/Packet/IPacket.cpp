@@ -1,7 +1,7 @@
 #include "IPacket.hpp"
 
 #include "PacketBuffer.hpp"
-#include "PacketFlags.hpp"
+#include "ProtocolInfo.hpp"
 
 #include "ToClient/Ping.hpp"
 #include "ToClient/Login/ServerInfo.hpp"
