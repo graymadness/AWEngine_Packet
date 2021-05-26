@@ -4,26 +4,29 @@
 
 namespace AWEngine::Packet::ToServer
 {
+    /// Response to `Ping` packet from the server.
+    /// Do not try to guess the `Payload`.
+    /// Sending multiple `Pong` packets after receiving `Ping` packet may result in termination of the connection by the server.
     AWE_PACKET(Pong, ToServer, 0xFE)
     {
     public:
         explicit Pong(uint64_t payload)
-                : m_Payload(payload)
+                : Payload(payload)
         {
         }
 
         explicit Pong(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
         {
-            in >> m_Payload;
+            in >> Payload;
         }
 
     public:
-        uint64_t m_Payload;
+        uint64_t Payload;
 
     public:
-        void Write(PacketBuffer &out) const override
+        void Write(PacketBuffer& out) const override
         {
-            out << static_cast<uint64_t>(m_Payload);
+            out << static_cast<uint64_t>(Payload);
         }
     };
 }
