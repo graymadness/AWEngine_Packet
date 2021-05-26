@@ -1,4 +1,4 @@
-#include "GameClient.hpp"
+#include "PacketClient.hpp"
 
 #include <AWEngine/Packet/ToClient/Ping.hpp>
 #include <AWEngine/Packet/ToClient/Kick.hpp>
@@ -6,24 +6,29 @@
 #include <AWEngine/Packet/ToServer/Pong.hpp>
 #include <AWEngine/Packet/ToServer/Disconnect.hpp>
 
-namespace AWEngine::Packet
+namespace AWEngine
 {
-    GameClient::GameClient(std::size_t maxOutputQueueSize)
+    PacketClient::PacketClient(std::size_t maxOutputQueueSize)
             : m_IoContext(),
               m_Socket(m_IoContext),
               MaxReceivedQueueSize(maxOutputQueueSize)
     {
     }
 
-    GameClient::~GameClient()
+    PacketClient::~PacketClient()
     {
         m_Closing = true;
         if(m_ReceiveThread.joinable())
             m_ReceiveThread.join();
     }
 
-    void GameClient::Connect(const std::string& host, uint16_t port)
+    void PacketClient::Connect(const std::string& host, uint16_t port)
     {
+        if(IsConnected())
+            throw std::runtime_error("Already connected");
+
+        ReceivedQueue.clear();
+
         using tcp = asio::ip::tcp;
         tcp::resolver resolver(m_IoContext);
 
@@ -35,6 +40,8 @@ namespace AWEngine::Packet
 
         m_ReceiveThread = std::thread([this]() -> void
                                       {
+                                          using namespace ::AWEngine::Packet;
+
                                           PacketBuffer tmpBuffer;
 
                                           try
@@ -64,7 +71,7 @@ namespace AWEngine::Packet
                                                                       {
                                                                           if(ReceivedQueue.size() == MaxReceivedQueueSize)
                                                                               throw std::runtime_error("Queue for received packets is full");
-                                                                          ReceivedQueue.emplace(std::move(packet));
+                                                                          ReceivedQueue.push_back(std::move(packet));
                                                                       }
                                                                   }
 
@@ -85,7 +92,7 @@ namespace AWEngine::Packet
                                                                       {
                                                                           if(ReceivedQueue.size() == MaxReceivedQueueSize)
                                                                               throw std::runtime_error("Queue for received packets is full");
-                                                                          ReceivedQueue.emplace(std::move(packet));
+                                                                          ReceivedQueue.push_back(std::move(packet));
                                                                       }
                                                                   }
 
@@ -159,7 +166,7 @@ namespace AWEngine::Packet
                                       });
     }
 
-    void GameClient::Disconnect()
+    void PacketClient::Disconnect()
     {
         if(!IsConnected())
             return;
