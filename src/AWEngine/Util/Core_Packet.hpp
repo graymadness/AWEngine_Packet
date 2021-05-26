@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #ifndef AWE_CLASS
 #   define AWE_CLASS(awe_name) class awe_name

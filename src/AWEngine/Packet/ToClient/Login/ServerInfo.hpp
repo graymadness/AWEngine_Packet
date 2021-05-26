@@ -17,7 +17,7 @@ namespace AWEngine::Packet::ToClient::Login
     /// Format of the JSON is game-specific but in general should look like:
     /// {
     ///   "name": "Example Server",
-    ///   "url": "http://example.com",
+    ///   "website": "http://example.com",
     ///   "players": {
     ///     "current": 6,
     ///     "max": 13
