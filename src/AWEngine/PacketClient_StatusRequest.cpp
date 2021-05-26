@@ -1,5 +1,7 @@
 #include "PacketClient.hpp"
 
+#include <AWEngine/Packet/PacketWrapper.hpp>
+
 #include <AWEngine/Packet/ToServer/Login/Init.hpp>
 #include <AWEngine/Packet/ToClient/Login/ServerInfo.hpp>
 
@@ -21,12 +23,12 @@ namespace AWEngine
         Packet::PacketBuffer tmpBuffer;
 
         // Send info request
-        Packet::IPacket::WritePacket(socket, ::AWEngine::Packet::ToServer::Login::Init(::AWEngine::Packet::ToServer::Login::Init::NextStep::ServerInfo), tmpBuffer);
+        Packet::PacketWrapper::WritePacket(socket, ::AWEngine::Packet::ToServer::Login::Init(::AWEngine::Packet::ToServer::Login::Init::NextStep::ServerInfo), tmpBuffer);
 
         // Read response
         {
             Packet::PacketID_t packetID;
-            Packet::IPacket::ReadPacket(socket, packetID, tmpBuffer);
+            Packet::PacketWrapper::ReadPacket(socket, packetID, tmpBuffer);
             switch(packetID)
             {
                 default:

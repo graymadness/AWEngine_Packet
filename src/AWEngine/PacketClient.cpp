@@ -49,7 +49,7 @@ namespace AWEngine
                                               {
                                                   PacketID_t packetID;
                                                   bool everythingOk;
-                                                  if(IPacket::ReadPacket(m_Socket, packetID, tmpBuffer, everythingOk))
+                                                  if(PacketWrapper::ReadPacket(m_Socket, packetID, tmpBuffer, everythingOk))
                                                   {
                                                       if(everythingOk)
                                                       {

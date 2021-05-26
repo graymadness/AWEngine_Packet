@@ -7,6 +7,7 @@
 #include <asio.hpp>
 
 #include <AWEngine/Packet/IPacket.hpp>
+#include <AWEngine/Packet/PacketWrapper.hpp>
 #include <AWEngine/Packet/ToClient/Login/ServerInfo.hpp>
 #include <AWEngine/Util/ThreadSafeQueue.h>
 
@@ -71,7 +72,7 @@ namespace AWEngine
         bool EnableReceivedQueue = true;
     public:
         template<Packet::PacketConcept_ToServer TP>
-        inline void Send(const TP& packet) { ::AWEngine::Packet::IPacket::WritePacket(m_Socket, packet); }
+        inline void Send(const TP& packet) { ::AWEngine::Packet::PacketWrapper::WritePacket(m_Socket, packet); }
         template<Packet::PacketConcept_ToServer TP>
         inline void Send(const std::unique_ptr<TP>& packet) { Send(*packet); }
     public:

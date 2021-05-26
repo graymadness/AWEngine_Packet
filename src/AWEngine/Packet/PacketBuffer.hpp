@@ -66,6 +66,7 @@ namespace AWEngine::Packet
         inline explicit PacketBuffer(const std::vector<uint8_t>& data) : PacketBuffer(data.data(), data.size()) { }
         /// From byte vector
         inline explicit PacketBuffer(const std::vector<char>& data) : PacketBuffer(reinterpret_cast<const uint8_t*>(data.data()), data.size()) { }
+        inline explicit PacketBuffer(std::size_t byteCount, char c = '\0') : m_Data(byteCount, c) {}
 
     public:
         ~PacketBuffer() = default;
@@ -77,11 +78,15 @@ namespace AWEngine::Packet
         /// Used when reading from start of m_Data to not erase those values all the time which would cause re-allocation
         uint32_t m_StartOffset = 0;
     public:
-        [[nodiscard]] inline const uint8_t* data() const noexcept { return m_Data.data() + m_StartOffset; }
-        [[nodiscard]] inline uint32_t size() const noexcept { return m_Data.size() - m_StartOffset; }
-        [[nodiscard]] inline bool empty() const noexcept { return size() <= 0; }
+        [[nodiscard]] inline const uint8_t* data()  const noexcept { return m_Data.data() + m_StartOffset; }
+        [[nodiscard]] inline       uint8_t* data()        noexcept { return m_Data.data() + m_StartOffset; }
+        [[nodiscard]] inline uint32_t       size()  const noexcept { return m_Data.size() - m_StartOffset; }
+        [[nodiscard]] inline bool           empty() const noexcept { return size() <= 0; }
+                      inline void           reserve(std::size_t byteCount) { m_Data.reserve(byteCount); }
+    public:
         [[nodiscard]] inline const std::vector<uint8_t>& Buffer() const noexcept { return m_Data; }
-        inline uint8_t& operator[](std::size_t index) { return m_Data[index < 0 ? -1 : index + m_StartOffset]; };
+    public:
+        inline       uint8_t& operator[](std::size_t index)       { return m_Data[index < 0 ? -1 : index + m_StartOffset]; };
         inline const uint8_t& operator[](std::size_t index) const { return m_Data[index < 0 ? -1 : index + m_StartOffset]; };
 
     public:

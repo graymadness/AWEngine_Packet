@@ -5,8 +5,6 @@
 #include <map>
 #include <functional>
 
-#include <asio.hpp>
-
 #include "ProtocolInfo.hpp"
 #include "PacketBuffer.hpp"
 
@@ -44,53 +42,6 @@ namespace AWEngine::Packet
 
     public:
         virtual void Write(PacketBuffer& out) const = 0;
-
-    public:
-        /// Read packet header and rest of packet into `buffer`.
-        /// Returns whenever `header` was read successfully, states nothing about `buffer` (for that is `everythingOk` parameter).
-        static bool ReadPacket(std::istream& in, PacketID_t& packetID, PacketBuffer& buffer, bool& everythingOk) noexcept;
-        /// Read packet header and rest of packet into `buffer`.
-        /// Returns `true` only when both header and content of the packet were read successfully.
-        inline static bool ReadPacket(std::istream& in, PacketID_t& packetID, PacketBuffer& buffer) noexcept
-        {
-            bool everythingOk;
-            return ReadPacket(in, packetID, buffer, everythingOk) && everythingOk;
-        }
-        /// Read packet header and rest of packet into `buffer`.
-        /// Returns whenever `header` was read successfully, states nothing about `buffer`.
-        static bool ReadPacket(asio::ip::tcp::socket& socket, PacketID_t& packetID, PacketBuffer& buffer, bool& everythingOk) noexcept;
-        /// Read packet header and rest of packet into `buffer`.
-        /// Returns `true` only when both header and content of the packet were read successfully.
-        inline static bool ReadPacket(asio::ip::tcp::socket& socket, PacketID_t& packetID, PacketBuffer& buffer) noexcept
-        {
-            bool everythingOk;
-            return ReadPacket(socket, packetID, buffer, everythingOk) && everythingOk;
-        }
-    public:
-        /// Send packet with all the necessary options.
-        /// Automatically decides on Packet Flags (like compression)
-        static void WritePacket(std::ostream& out, PacketID_t packetID, const PacketBuffer& buffer);
-        template<PacketConcept P>
-        inline static void WritePacket(std::ostream& out, const P& packet, PacketBuffer buff)
-        {
-            buff.Clear();
-            packet.Write(buff);
-            IPacket::WritePacket(out, P::s_PacketID(), buff);
-        }
-        template<PacketConcept P>
-        inline static void WritePacket(std::ostream& out, const P& packet) { WritePacket(out, packet, PacketBuffer()); }
-        /// Send packet with all the necessary options.
-        /// Automatically decides on Packet Flags (like compression)
-        static void WritePacket(asio::ip::tcp::socket& socket, PacketID_t packetID, const PacketBuffer& buffer);
-        template<PacketConcept P>
-        inline static void WritePacket(asio::ip::tcp::socket& socket, const P& packet, PacketBuffer buff)
-        {
-            buff.Clear();
-            packet.Write(buff);
-            IPacket::WritePacket(socket, P::s_PacketID(), buff);
-        }
-        template<PacketConcept P>
-        inline static void WritePacket(asio::ip::tcp::socket& socket, const P& packet) { WritePacket(socket, packet, PacketBuffer()); }
 
     public:
         /// Struct used to identify the packet
