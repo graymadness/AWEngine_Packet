@@ -14,6 +14,7 @@
     #error "unsupported char size"
 #endif
 
+#include <asio.hpp>
 #include <portable_endian.h>
 
 namespace AWEngine::Packet
@@ -24,6 +25,7 @@ namespace AWEngine::Packet
         static const std::size_t StreamEofBufferStep = 1024;
         /// 65,532
         static const constexpr std::size_t MaxSize = (std::numeric_limits<uint16_t>::max)() - 4; // 4 bytes for packet header
+        static_assert(MaxSize < 65'536u);
 
     public:
         /// Empty buffer
@@ -31,12 +33,22 @@ namespace AWEngine::Packet
         /// Read `in` until EOF is reached
         explicit PacketBuffer(std::istream& in)
         {
-            Load(in);
+            LoadAll(in);
         }
         /// Read `in` for specified number of chars
         inline PacketBuffer(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
         {
             Load(in, byteLength, exceptionOnLessChars);
+        }
+        /// Read all available data from `socket`
+        explicit PacketBuffer(asio::ip::tcp::socket& socket)
+        {
+            LoadAvailable(socket);
+        }
+        /// Read `socket` for specified number of chars
+        inline PacketBuffer(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true)
+        {
+            Load(socket, byteLength, exceptionOnLessChars);
         }
         /// From byte array
         inline PacketBuffer(const uint8_t* array, std::size_t arraySize)
@@ -77,6 +89,14 @@ namespace AWEngine::Packet
         {
             return out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
         }
+        inline void Save(std::ostream& out) const
+        {
+            out.write(reinterpret_cast<const char*>(data()), size());
+        }
+        inline void Save(asio::ip::tcp::socket& socket) const
+        {
+            asio::write(socket, asio::buffer(reinterpret_cast<const char*>(data()), size()));
+        }
 
     private:
         inline void RemoveStartOffset()
@@ -94,62 +114,34 @@ namespace AWEngine::Packet
             m_StartOffset = 0;
             m_Data.clear();
         }
-        inline void Load(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
+        void Load(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true);
+        std::size_t LoadAll(std::istream& in);
+        void Load(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true);
+        inline std::size_t LoadAvailable(asio::ip::tcp::socket& socket)
         {
-            if(!in.good())
-                throw std::runtime_error("Input stream is not in a good shape");
-
-            std::size_t size_old = m_Data.size();
-            m_Data.resize(size_old + byteLength);
-            in.read(reinterpret_cast<char*>(m_Data.data()), byteLength);
-
-            if(!in.good() && !in.eof())
-                throw std::runtime_error("Input stream is not in a good shape after read");
-
-            if(exceptionOnLessChars)
-            {
-                if(in.eof() || in.gcount() != byteLength)
-                    throw std::runtime_error("Stream ended too soon");
-            }
-            else
-            {
-                if(in.gcount() != byteLength)
-                    m_Data.resize(size_old + in.gcount());
-            }
-        }
-        inline void Load(std::istream& in)
-        {
-            if(!in.good())
-                throw std::runtime_error("Input stream is not in a good shape");
-
-            std::size_t size = 0, size_old;
-            while(true)
-            {
-                // Read data by `StreamEofBufferStep` segments
-                size_old = size;
-                size += StreamEofBufferStep;
-                m_Data.resize(size);
-                in.read(reinterpret_cast<char*>(m_Data.data() + size_old), StreamEofBufferStep);
-
-                if(!in.good() && !in.eof())
-                    throw std::runtime_error("Input stream is not in a good shape after read");
-
-                if(in.eof() || in.gcount() != StreamEofBufferStep)
-                {
-                    m_Data.resize(size_old + in.gcount()); // Discard memory to which was not written
-                    break;
-                }
-            }
+            std::size_t bytesAvailable = socket.available();
+            Load(socket, bytesAvailable);
+            return bytesAvailable;
         }
         inline void ClearAndLoad(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
         {
             Clear();
             Load(in, byteLength, exceptionOnLessChars);
         }
-        inline void ClearAndLoad(std::istream& in)
+        inline void ClearAndLoadAll(std::istream& in)
         {
             Clear();
-            Load(in);
+            LoadAll(in);
+        }
+        inline void ClearAndLoad(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true)
+        {
+            Clear();
+            Load(socket, byteLength, exceptionOnLessChars);
+        }
+        inline void ClearAndLoadAvailable(asio::ip::tcp::socket& socket)
+        {
+            Clear();
+            LoadAvailable(socket);
         }
 
     // Write

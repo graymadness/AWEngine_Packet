@@ -2,6 +2,7 @@
 
 #include <chrono>
 
+// CMakeLists.txt will enable this automatically when https://github.com/nlohmann/json is found as a target `nlohmann_json` (must be created before this library).
 #ifdef AWE_PACKET_LIB_JSON
 #   include <nlohmann/json.hpp>
 #endif
@@ -11,6 +12,17 @@
 
 namespace AWEngine::Packet::ToClient::Login
 {
+    /// Status response to `Init` packet.
+    /// May be sent during gameplay (on server decision) to update those info.
+    /// Format of the JSON is game-specific but in general should look like:
+    /// {
+    ///   "name": "Example Server",
+    ///   "url": "http://example.com",
+    ///   "players": {
+    ///     "current": 6,
+    ///     "max": 13
+    ///   }
+    /// }
     AWE_PACKET(ServerInfo, ToClient, 0x00)
     {
     public:

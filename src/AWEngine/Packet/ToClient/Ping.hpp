@@ -6,11 +6,15 @@
 
 namespace AWEngine::Packet::ToClient
 {
+    /// Server requesting immediate response from the client to measure the delay.
+    /// Server expects Pong response with same `Payload` otherwise should terminates the connection.
+    /// The payload is usually current UNIX time but it is not required.
+    /// `GameClient` responds to this packet automatically.
     AWE_PACKET(Ping, ToClient, 0xFE)
     {
     public:
         explicit Ping(uint64_t payload)
-                : m_Payload(payload)
+                : Payload(payload)
         {
         }
         /// New instance with current time
@@ -21,16 +25,16 @@ namespace AWEngine::Packet::ToClient
 
         explicit Ping(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
         {
-            in >> m_Payload;
+            in >> Payload;
         }
 
     public:
-        uint64_t m_Payload;
+        uint64_t Payload;
 
     public:
         void Write(PacketBuffer& out) const override
         {
-            out << static_cast<uint64_t>(m_Payload);
+            out << static_cast<uint64_t>(Payload);
         }
     };
 }

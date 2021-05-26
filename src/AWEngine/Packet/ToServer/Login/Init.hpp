@@ -6,6 +6,16 @@
 
 namespace AWEngine::Packet::ToServer::Login
 {
+    /// Initial packet send by client after the connection is created.
+    /// If other packet is sent or no packet is sent in a short period of time (depends on server), server should terminate the connection.
+    /// Tells server what game (and network version) the client is and whenever is just requesting info about the server or wants to join.
+    /// Server may ignore Protocol Version and even Game Name when receiving request for info.
+    /// If sent from outside of a game client, use correct Game Name (when looking for a specific game, otherwise 8 '\0' characters) and Protocol Version 0.
+    /// Possible responses:
+    /// - `ServerInfo` - the info client requested
+    /// - `Kick` - no access to the info or no space for the client to join the server (maximum players online)
+    /// - game-specific init packet - what server needs to tell you (auth info?)
+    /// - (future idea) wait-in-line packet - keep-alive packet telling the client its position in queue
     AWE_PACKET(Init, ToServer, 0x00)
     {
     public:
@@ -38,11 +48,8 @@ namespace AWEngine::Packet::ToServer::Login
                    Next(next)
         {
         }
-        explicit Init(
-                std::array<char, 8> gameName,
-                NextStep next
-        )
-                :  GameName(gameName),
+        explicit Init(NextStep next)
+                :  GameName(ProtocolInfo::GameName),
                    ProtocolVersion(ProtocolInfo::ProtocolVersion),
                    Next(next)
         {
