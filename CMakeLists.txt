@@ -36,7 +36,7 @@ file(GLOB_RECURSE AWE_Packet_SOURCE src/*.hpp src/*.cpp src/*.h src/*.c)
 add_library(AWEngine_Packet STATIC ${AWE_Packet_SOURCE})
 target_include_directories(AWEngine_Packet PUBLIC src/)
 
-target_link_libraries(AWEngine_Packet asio)
+target_link_libraries(AWEngine_Packet asio pthread)
 
 if(GCC)
     target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
@@ -69,6 +69,18 @@ if(DEFINED AWE_PACKET_GAME_NAME)
     else()
         message(FATAL_ERROR "Invalid Protocol Game Name '${AWE_PACKET_GAME_NAME}' - use only UPPER CASE letters")
     endif()
+endif()
+
+# Minimum / Maximum threads for Packet Server (used for IO Context)
+if(DEFINED AWE_PACKET_SERVER_THREAD_MIN)
+    add_compile_definitions(AWEngine_Packet AWE_PACKET_SERVER_THREAD_MIN=${AWE_PACKET_SERVER_THREAD_MIN})
+else()
+    add_compile_definitions(AWEngine_Packet AWE_PACKET_SERVER_THREAD_MIN=1)
+endif()
+if(DEFINED AWE_PACKET_SERVER_THREAD_MAX)
+    add_compile_definitions(AWEngine_Packet AWE_PACKET_SERVER_THREAD_MAX=${AWE_PACKET_SERVER_THREAD_MAX})
+else()
+    add_compile_definitions(AWEngine_Packet AWE_PACKET_SERVER_THREAD_MAX=1)
 endif()
 
 #--------------------------------
