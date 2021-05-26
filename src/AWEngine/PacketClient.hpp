@@ -8,40 +8,44 @@
 
 #include <AWEngine/Packet/IPacket.hpp>
 #include <AWEngine/Packet/ToClient/Login/ServerInfo.hpp>
+#include <AWEngine/Util/ThreadSafeQueue.h>
 
-namespace AWEngine::Packet
+namespace AWEngine
 {
-    AWE_ENUM(DisconnectReason, uint8_t)
+    namespace Packet
     {
-        Unknown         = 0,
-        ClientRequest   = 1,
-        Kicked          = 2,
-        ConnectionError = 3
-    };
+        AWE_ENUM(DisconnectReason, uint8_t)
+        {
+            Unknown = 0,
+            ClientRequest = 1,
+            Kicked = 2,
+            ConnectionError = 3
+        };
 
-    AWE_STRUCT(DisconnectInfo)
-    {
-        DisconnectReason Reason = DisconnectReason::Unknown;
-        bool TranslateMessage = false;
-        std::string Message = {};
-    };
+        AWE_STRUCT(DisconnectInfo)
+        {
+            DisconnectReason Reason = DisconnectReason::Unknown;
+            bool TranslateMessage = false;
+            std::string Message = {};
+        };
+    }
 
-    AWE_CLASS(GameClient)
+    AWE_CLASS(PacketClient)
     {
     public:
-        explicit GameClient(std::size_t maxOutputQueueSize = MaxReceivedQueueSize_Default);
-        ~GameClient();
+        explicit PacketClient(std::size_t maxOutputQueueSize = MaxReceivedQueueSize_Default);
+        ~PacketClient();
 
     public:
         // Copy
-        GameClient(const GameClient&) = delete;
-        GameClient& operator=(const GameClient&) = delete;
+        PacketClient(const PacketClient&) = delete;
+        PacketClient& operator=(const PacketClient&) = delete;
         // Move
-        GameClient(GameClient&&) = delete;
-        GameClient& operator=(GameClient&&) = delete;
+        PacketClient(PacketClient&&) = delete;
+        PacketClient& operator=(PacketClient&&) = delete;
 
     public:
-        std::function<void(const DisconnectInfo&)> DisconnectCallback;
+        std::function<void(const Packet::DisconnectInfo&)> DisconnectCallback;
         std::function<void()> ConnectCallback;
     public:
         [[nodiscard]] inline bool IsConnected() const noexcept { return m_Socket.is_open(); }
@@ -57,11 +61,11 @@ namespace AWEngine::Packet
         /// Callback called for every received packet (except ping and disconnect packets).
         /// Returns `true` when the packet should be put to `ReceivedQueue`.
         /// Runs on internal "Receive" thread = try to keep execution time as low as possible.
-        std::function<bool(IPacket_uptr&)> PacketReceivedCallback;
+        std::function<bool(Packet::IPacket_uptr&)> PacketReceivedCallback;
         /// Queue of packets for the client to read from different threads.
         /// Try to pick items from the queue every tick otherwise it may overflow `MaxReceivedQueueSize` and terminate the connection.
-        //TODO Verify it is thread-safe
-        std::queue<IPacket_uptr> ReceivedQueue;
+        /// Cleared on `Connect`.
+        ::AWEngine::Util::ThreadSafeQueue<Packet::IPacket_uptr> ReceivedQueue;
         static const std::size_t MaxReceivedQueueSize_Default = 128;
         /// Maximum items in `ReceivedQueue` until it throw an error and terminates the connection.
         const std::size_t MaxReceivedQueueSize;
@@ -69,12 +73,12 @@ namespace AWEngine::Packet
         /// Not recommended to change as your only way to process packets would be inside `PacketReceivedCallback` which is not recommended.
         bool EnableReceivedQueue = true;
     public:
-        template<PacketConcept_ToServer TP>
-        inline void Send(const TP& packet) { IPacket::WritePacket(m_Socket, packet); }
-        template<PacketConcept_ToServer TP>
+        template<Packet::PacketConcept_ToServer TP>
+        inline void Send(const TP& packet) { ::AWEngine::Packet::IPacket::WritePacket(m_Socket, packet); }
+        template<Packet::PacketConcept_ToServer TP>
         inline void Send(const std::unique_ptr<TP>& packet) { Send(*packet); }
     public:
-        inline void Send(const IPacket_uptr& packet);
+        inline void Send(const Packet::IPacket_uptr& packet);
         //TODO SendAsync
 
     private:

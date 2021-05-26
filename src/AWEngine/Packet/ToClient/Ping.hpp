@@ -9,7 +9,7 @@ namespace AWEngine::Packet::ToClient
     /// Server requesting immediate response from the client to measure the delay.
     /// Server expects Pong response with same `Payload` otherwise should terminates the connection.
     /// The payload is usually current UNIX time but it is not required.
-    /// `GameClient` responds to this packet automatically.
+    /// `PacketClient` responds to this packet automatically.
     AWE_PACKET(Ping, ToClient, 0xFE)
     {
     public:
