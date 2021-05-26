@@ -12,23 +12,20 @@
 
 namespace AWEngine
 {
-    namespace Packet
+    AWE_ENUM(DisconnectReason, uint8_t)
     {
-        AWE_ENUM(DisconnectReason, uint8_t)
-        {
-            Unknown = 0,
-            ClientRequest = 1,
-            Kicked = 2,
-            ConnectionError = 3
-        };
+        Unknown = 0,
+        ClientRequest = 1,
+        Kicked = 2,
+        ConnectionError = 3
+    };
 
-        AWE_STRUCT(DisconnectInfo)
-        {
-            DisconnectReason Reason = DisconnectReason::Unknown;
-            bool TranslateMessage = false;
-            std::string Message = {};
-        };
-    }
+    AWE_STRUCT(DisconnectInfo)
+    {
+        DisconnectReason Reason = DisconnectReason::Unknown;
+        bool TranslateMessage = false;
+        std::string Message = {};
+    };
 
     AWE_CLASS(PacketClient)
     {
@@ -45,7 +42,7 @@ namespace AWEngine
         PacketClient& operator=(PacketClient&&) = delete;
 
     public:
-        std::function<void(const Packet::DisconnectInfo&)> DisconnectCallback;
+        std::function<void(const DisconnectInfo&)> DisconnectCallback;
         std::function<void()> ConnectCallback;
     public:
         [[nodiscard]] inline bool IsConnected() const noexcept { return m_Socket.is_open(); }

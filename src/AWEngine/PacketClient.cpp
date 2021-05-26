@@ -41,7 +41,6 @@ namespace AWEngine
         m_ReceiveThread = std::thread([this]() -> void
                                       {
                                           using namespace ::AWEngine::Packet;
-
                                           PacketBuffer tmpBuffer;
 
                                           try
@@ -57,12 +56,12 @@ namespace AWEngine
                                                           switch(packetID)
                                                           {
                                                               /// Ping packet requires fast response = respond first, then let the client process it.
-                                                              case ::AWEngine::Packet::ToClient::Ping::s_PacketID():
+                                                              case ToClient::Ping::s_PacketID():
                                                               {
-                                                                  auto pingPacket = ::AWEngine::Packet::ToClient::Ping(tmpBuffer);
-                                                                  Send(::AWEngine::Packet::ToServer::Pong(pingPacket.Payload));
+                                                                  auto pingPacket = ToClient::Ping(tmpBuffer);
+                                                                  Send(ToServer::Pong(pingPacket.Payload));
 
-                                                                  IPacket_uptr packet = std::make_unique<::AWEngine::Packet::ToClient::Ping>(pingPacket);
+                                                                  IPacket_uptr packet = std::make_unique<ToClient::Ping>(pingPacket);
 
                                                                   // Should we place it into the queue?
                                                                   if(!PacketReceivedCallback || PacketReceivedCallback(packet))
@@ -79,11 +78,11 @@ namespace AWEngine
                                                               }
 
                                                               /// Kick packet is processed differently then rest of the packets as it ends the communication.
-                                                              case ::AWEngine::Packet::ToClient::Kick::s_PacketID():
+                                                              case ToClient::Kick::s_PacketID():
                                                               {
-                                                                  auto kickPacket = ::AWEngine::Packet::ToClient::Kick(tmpBuffer);
+                                                                  auto kickPacket = ToClient::Kick(tmpBuffer);
 
-                                                                  IPacket_uptr packet = std::make_unique<::AWEngine::Packet::ToClient::Kick>(kickPacket);
+                                                                  IPacket_uptr packet = std::make_unique<ToClient::Kick>(kickPacket);
 
                                                                   // Should we place it into the queue?
                                                                   if(!PacketReceivedCallback || PacketReceivedCallback(packet))
