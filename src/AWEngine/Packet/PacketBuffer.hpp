@@ -14,8 +14,9 @@
     #error "unsupported char size"
 #endif
 
-#include <asio.hpp>
 #include <portable_endian.h>
+
+#include <AWEngine/Util/Asio.hpp>
 
 namespace AWEngine::Packet
 {
@@ -119,15 +120,9 @@ namespace AWEngine::Packet
             m_StartOffset = 0;
             m_Data.clear();
         }
+    public:
         void Load(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true);
         std::size_t LoadAll(std::istream& in);
-        void Load(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true);
-        inline std::size_t LoadAvailable(asio::ip::tcp::socket& socket)
-        {
-            std::size_t bytesAvailable = socket.available();
-            Load(socket, bytesAvailable);
-            return bytesAvailable;
-        }
         inline void ClearAndLoad(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
         {
             Clear();
@@ -137,6 +132,14 @@ namespace AWEngine::Packet
         {
             Clear();
             LoadAll(in);
+        }
+    public:
+        void Load(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true);
+        inline std::size_t LoadAvailable(asio::ip::tcp::socket& socket)
+        {
+            std::size_t bytesAvailable = socket.available();
+            Load(socket, bytesAvailable);
+            return bytesAvailable;
         }
         inline void ClearAndLoad(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true)
         {
@@ -148,6 +151,16 @@ namespace AWEngine::Packet
             Clear();
             LoadAvailable(socket);
         }
+
+#ifdef AWE_PACKET_COROUTINE
+    public:
+        asio::awaitable<void> LoadAsync(asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::socket>& socket, uint32_t byteLength, bool exceptionOnLessChars = true);
+        inline asio::awaitable<void> ClearAndLoadAsync(asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::socket>& socket, uint32_t byteLength, bool exceptionOnLessChars = true)
+        {
+            Clear();
+            co_await LoadAsync(socket, byteLength, exceptionOnLessChars);
+        }
+#endif
 
     // Write
     public:

@@ -1,5 +1,7 @@
-add_executable(T_Test main.cpp)
+if(AWE_PACKET_COROUTINE)
+    add_executable(T_Test main.cpp)
 
-target_link_libraries(T_Test AWEngine_Packet)
+    target_link_libraries(T_Test AWEngine_Packet)
 
-add_test(NAME Test COMMAND T_Test)
+    add_test(NAME Test COMMAND T_Test)
+endif()

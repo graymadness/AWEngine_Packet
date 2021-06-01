@@ -8,13 +8,13 @@
 #   define AWE_PACKET_SERVER_THREAD_MAX 1
 #endif
 
-#include <asio.hpp>
+#include <AWEngine/Util/Asio.hpp>
 #include <cstdio>
-#include <coroutine>
 
 namespace AWEngine
 {
-    asio::awaitable<void> PacketServer::ProcessSocketAsync(tcp_socket socket)
+#ifdef AWE_PACKET_COROUTINE
+    asio::awaitable<void> PacketServer::ProcessSocketAsync(asio::tcp_socket socket)
     {
         try
         {
@@ -22,7 +22,7 @@ namespace AWEngine
             while(true)
             {
                 std::size_t n = co_await socket.async_read_some(asio::buffer(data, 1024));
-                co_await async_write(socket, asio::buffer(data, n));
+                co_await asio::async_write(socket, asio::buffer(data, n));
             }
         }
         catch (std::exception& e)
@@ -34,14 +34,16 @@ namespace AWEngine
     asio::awaitable<void> PacketServer::ListenerAsync(asio::ip::tcp tcpip)
     {
         auto executor = co_await asio::this_coro::executor;
-        tcp_acceptor acceptor(executor, { tcpip, Config.Port });
+        asio::tcp_acceptor acceptor(executor, { tcpip, Config.Port });
         while(true)
         {
             auto socket = co_await acceptor.async_accept();
             asio::co_spawn(executor, ProcessSocketAsync(std::move(socket)), asio::detached);
         }
     }
+#endif
 
+#ifdef AWE_PACKET_COROUTINE
     PacketServer::PacketServer(PacketServer::Configuration  config)
             : m_IoContext(std::clamp(static_cast<int>(std::thread::hardware_concurrency()), AWE_PACKET_SERVER_THREAD_MIN, AWE_PACKET_SERVER_THREAD_MAX)),
               m_Socket(m_IoContext),
@@ -63,6 +65,9 @@ namespace AWEngine
 
         m_IoContext.run();
     }
+#else
+#   warning PacketServer cannot work without coroutines
+#endif
 
     PacketServer::~PacketServer()
     {

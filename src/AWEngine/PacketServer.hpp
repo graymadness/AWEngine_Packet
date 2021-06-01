@@ -1,8 +1,7 @@
 #pragma once
 #include <AWEngine/Util/Core_Packet.hpp>
 
-#include <asio.hpp>
-
+#include <AWEngine/Util/Asio.hpp>
 #include <AWEngine/Packet/IPacket.hpp>
 #include <AWEngine/Packet/ProtocolInfo.hpp>
 
@@ -37,12 +36,11 @@ namespace AWEngine
     private:
         asio::io_context m_IoContext;
         asio::ip::tcp::socket m_Socket;
-    private:
-        using tcp_acceptor = asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::acceptor>;
-        using tcp_socket = asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::socket>;
+#ifdef AWE_PACKET_COROUTINE
     private:
         asio::awaitable<void> ListenerAsync(asio::ip::tcp tcpip);
-        asio::awaitable<void> ProcessSocketAsync(tcp_socket socket);
+        asio::awaitable<void> ProcessSocketAsync(asio::tcp_socket socket);
+#endif
 
     public:
         const Configuration Config;

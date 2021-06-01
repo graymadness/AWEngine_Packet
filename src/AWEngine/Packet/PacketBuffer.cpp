@@ -78,4 +78,27 @@ namespace AWEngine::Packet
                 m_Data.resize(size_old + bytesTransferred); // Discard memory to which was not written
         }
     }
+
+#ifdef AWE_PACKET_COROUTINE
+    asio::awaitable<void> PacketBuffer::LoadAsync(asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::socket>& socket, uint32_t byteLength, bool exceptionOnLessChars)
+    {
+        if(byteLength == 0)
+            co_return;
+
+        std::size_t size_old = m_Data.size();
+        m_Data.resize(size_old + byteLength);
+        std::size_t bytesTransferred = co_await socket.async_read_some(asio::buffer(reinterpret_cast<char*>(m_Data.data() + size_old), byteLength));
+
+        if(exceptionOnLessChars)
+        {
+            if(bytesTransferred != byteLength)
+                throw std::runtime_error("Data ended too soon");
+        }
+        else
+        {
+            if(bytesTransferred != byteLength)
+                m_Data.resize(size_old + bytesTransferred); // Discard memory to which was not written
+        }
+    }
+#endif
 }

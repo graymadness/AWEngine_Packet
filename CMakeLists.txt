@@ -6,11 +6,13 @@ set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
 cmake_policy(SET CMP0077 NEW) # set() overrides option()
 
+add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>") # Define DEBUG in Debug builds
+
 #--------------------------------
-# Debug Options
+# Options
 #--------------------------------
 
-add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>") # Define DEBUG in Debug builds
+option(AWE_PACKET_COROUTINE "Enable support of coroutines (async networking)" ON)
 
 #--------------------------------
 # Configuration
@@ -40,6 +42,9 @@ target_link_libraries(AWEngine_Packet asio pthread)
 
 if(GCC)
     target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
+endif()
+if(WIN32)
+    target_link_libraries(AWEngine_Packet ws2_32)
 endif()
 
 # JSON Support
@@ -81,6 +86,10 @@ if(DEFINED AWE_PACKET_SERVER_THREAD_MAX)
     add_compile_definitions(AWEngine_Packet AWE_PACKET_SERVER_THREAD_MAX=${AWE_PACKET_SERVER_THREAD_MAX})
 else()
     add_compile_definitions(AWEngine_Packet AWE_PACKET_SERVER_THREAD_MAX=1)
+endif()
+
+if(AWE_PACKET_COROUTINE)
+    add_compile_definitions(AWEngine_Packet AWE_PACKET_COROUTINE=1)
 endif()
 
 #--------------------------------

@@ -12,7 +12,9 @@ if(NOT TARGET asio)
 
     target_compile_definitions(asio INTERFACE ASIO_HAS_STD_SHARED_PTR=1)
 
-    target_compile_definitions(asio INTERFACE ASIO_HAS_CO_AWAIT=1)
-    target_compile_definitions(asio INTERFACE ASIO_HAS_STD_COROUTINE=1)
-    target_compile_options(asio INTERFACE -fcoroutines)
+    if(AWE_PACKET_COROUTINE)
+        target_compile_definitions(asio INTERFACE ASIO_HAS_CO_AWAIT=1)
+        target_compile_definitions(asio INTERFACE ASIO_HAS_STD_COROUTINE=1)
+        target_compile_options(asio INTERFACE -fcoroutines)
+    endif()
 endif()

@@ -1,8 +1,7 @@
 #pragma once
 #include <AWEngine/Util/Core_Packet.hpp>
 
-#include <asio.hpp>
-
+#include <AWEngine/Util/Asio.hpp>
 #include "IPacket.hpp"
 #include "ProtocolInfo.hpp"
 #include "PacketBuffer.hpp"
@@ -43,6 +42,20 @@ namespace AWEngine::Packet
                 std::function<void(PacketID_t, PacketBuffer)> receivedCallback,
                 std::function<void(std::string)> failedCallback
                 ) noexcept;
+
+#ifdef AWE_PACKET_COROUTINE
+    public: // Read Packet
+        /// Read packet header and rest of packet into `buffer`.
+        /// Returns whenever `header` was read successfully, states nothing about `buffer`.
+        static asio::awaitable<bool> ReadPacketAsync(asio::tcp_socket& socket, PacketID_t& packetID, PacketBuffer& buffer, bool& everythingOk) noexcept;
+        /// Read packet header and rest of packet into `buffer`.
+        /// Returns `true` only when both header and content of the packet were read successfully.
+        inline static asio::awaitable<bool> ReadPacketAsync(asio::tcp_socket& socket, PacketID_t& packetID, PacketBuffer& buffer) noexcept
+        {
+            bool everythingOk;
+            co_return co_await PacketWrapper::ReadPacketAsync(socket, packetID, buffer, everythingOk) && everythingOk;
+        }
+#endif
 
 
 
@@ -85,6 +98,22 @@ namespace AWEngine::Packet
         }
         template<PacketConcept P>
         inline static void WritePacketAsync(asio::ip::tcp::socket& socket, const P& packet) { PacketWrapper::WritePacketAsync(socket, packet, PacketBuffer()); }
+
+#ifdef AWE_PACKET_COROUTINE
+    public: // Write Packet (async)
+        /// Send packet with all the necessary options.
+        /// Automatically decides on Packet Flags (like compression)
+        static asio::awaitable<void> WritePacketAsync(asio::tcp_socket& socket, PacketID_t packetID, const PacketBuffer& buffer);
+        template<PacketConcept P>
+        inline static asio::awaitable<void> WritePacketAsync(asio::tcp_socket& socket, const P& packet, PacketBuffer buff)
+        {
+            buff.Clear();
+            packet.Write(buff);
+            return PacketWrapper::WritePacketAsync(socket, P::s_PacketID(), buff);
+        }
+        template<PacketConcept P>
+        inline static asio::awaitable<void> WritePacketAsync(asio::tcp_socket& socket, const P& packet) { return PacketWrapper::WritePacketAsync(socket, packet, PacketBuffer()); }
+#endif
 
     };
 }
