@@ -65,11 +65,6 @@ namespace AWEngine::Packet::ToServer::Login
         uint32_t            ProtocolVersion;
         NextStep            Next;
 
-#ifdef AWE_PACKET_LIB_JSON
-    public:
-        inline nlohmann::json Json() const { nlohmann::json::parse(JsonString); }
-#endif
-
     public:
         inline void Write(PacketBuffer& out) const override;
     };

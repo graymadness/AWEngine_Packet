@@ -40,11 +40,11 @@ namespace AWEngine::Packet::ToClient::Login
         explicit ServerInfo(const std::string& jsonString) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, jsonString) {}
 #ifdef AWE_PACKET_LIB_JSON
         explicit ServerInfo(
-                std::array<char, 8> gameName,
-                uint32_t            protocolVersion,
-                nlohmann::json      json
+                std::array<char, 8>   gameName,
+                uint32_t              protocolVersion,
+                const nlohmann::json& json
         ) : ServerInfo(gameName, protocolVersion, json.dump()) {}
-        explicit ServerInfo(nlohmann::json json) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, json) {}
+        explicit ServerInfo(const nlohmann::json& json) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, json) {}
 #endif
 
         explicit ServerInfo(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
@@ -59,7 +59,7 @@ namespace AWEngine::Packet::ToClient::Login
 
 #ifdef AWE_PACKET_LIB_JSON
     public:
-        inline nlohmann::json Json() const { nlohmann::json::parse(JsonString); }
+        [[nodiscard]] inline nlohmann::json Json() const { return nlohmann::json::parse(JsonString); }
 #endif
 
     public:
