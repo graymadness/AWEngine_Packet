@@ -15,7 +15,7 @@ namespace AWEngine
             std::string DisplayName = "Unnamed Server";
             std::string WebsiteUrl = std::string();
 
-            std::size_t MaxPlayers = 1;
+            std::size_t MaxPlayers = 10;
 
             std::vector<asio::ip::tcp> IPs = {};
             uint16_t Port = ::AWEngine::Packet::ProtocolInfo::DefaultPort;

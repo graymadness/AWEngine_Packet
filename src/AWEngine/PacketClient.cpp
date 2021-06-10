@@ -36,7 +36,10 @@ namespace AWEngine
         if(ConnectCallback)
             ConnectCallback();
 
-        m_Closing = true;
+        m_Closing = false;
+
+        m_ReceivedPacketCount = 0;
+        m_SentPacketCount = 0;
 
         m_ReceiveThread = std::thread([this]() -> void
                                       {
@@ -53,6 +56,8 @@ namespace AWEngine
                                                   {
                                                       if(everythingOk)
                                                       {
+                                                          m_ReceivedPacketCount++;
+
                                                           switch(packetID)
                                                           {
                                                               /// Ping packet requires fast response = respond first, then let the client process it.
@@ -111,9 +116,21 @@ namespace AWEngine
 
                                                               default:
                                                               {
-                                                                  //TODO Parse function (tmpBuffer -> packet)
-                                                                  //TODO Packet parsed callback
-                                                                  //TODO Put packet into output queue
+                                                                  PacketParser_t parser = ProtocolInfo::ParsersToClient[packetID]; //TODO Parse function (tmpBuffer -> packet)
+                                                                  if(!parser)
+                                                                      throw std::runtime_error("Unsupported packet with ID=" + std::to_string(packetID));
+                                                                  IPacket_uptr packet = parser(tmpBuffer, packetID);
+
+                                                                  // Should we place it into the queue?
+                                                                  if(!PacketReceivedCallback || PacketReceivedCallback(packet))
+                                                                  {
+                                                                      if(EnableReceivedQueue)
+                                                                      {
+                                                                          if(ReceivedQueue.size() == MaxReceivedQueueSize)
+                                                                              throw std::runtime_error("Queue for received packets is full");
+                                                                          ReceivedQueue.push_back(std::move(packet));
+                                                                      }
+                                                                  }
                                                                   continue;
                                                               }
                                                           }

@@ -6,19 +6,9 @@
 #include <functional>
 
 #include "ProtocolInfo.hpp"
-#include "PacketBuffer.hpp"
 
 namespace AWEngine::Packet
 {
-    AWE_CLASS_UPTR(IPacket);
-
-    typedef uint8_t PacketID_t;
-    static const std::size_t PacketID_Count = static_cast<std::size_t>(std::numeric_limits<PacketID_t>::max()) + 1;
-
-    typedef uint32_t ProtocolVersion_t;
-
-    typedef std::function<IPacket_uptr(PacketBuffer&, PacketID_t)> PacketParser_t;
-
     AWE_STRUCT(PacketHeader)
     {
         PacketID_t ID;
@@ -72,6 +62,6 @@ namespace AWEngine::Packet
 #   define AWE_PACKET_PARSER(packet_name)\
     [](::AWEngine::Packet::PacketBuffer& in, ::AWEngine::Packet::PacketID_t id) -> ::AWEngine::Packet::IPacket_uptr\
     {\
-        return std::weak_ptr<packet_name>(in);\
+        return std::make_unique<packet_name>(in);\
     }
 #endif

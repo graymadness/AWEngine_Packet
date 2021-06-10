@@ -8,6 +8,7 @@
 
 #include <AWEngine/Packet/IPacket.hpp>
 #include <AWEngine/Packet/PacketWrapper.hpp>
+#include <AWEngine/Packet/ProtocolInfo.hpp>
 #include <AWEngine/Packet/ToClient/Login/ServerInfo.hpp>
 #include <AWEngine/Util/ThreadSafeQueue.h>
 
@@ -28,6 +29,22 @@ namespace AWEngine
         std::string Message = {};
     };
 
+    inline std::ostream& operator<<(std::ostream& out, DisconnectReason dr)
+    {
+        switch(dr)
+        {
+            default:
+            case DisconnectReason::Unknown:
+                return out << "unknown";
+            case DisconnectReason::ClientRequest:
+                return out << "client_request";
+            case DisconnectReason::Kicked:
+                return out << "kicked";
+            case DisconnectReason::ConnectionError:
+                return out << "connection_error";
+        }
+    }
+
     AWE_CLASS(PacketClient)
     {
     public:
@@ -47,7 +64,7 @@ namespace AWEngine
         std::function<void()> ConnectCallback;
     public:
         [[nodiscard]] inline bool IsConnected() const noexcept { return m_Socket.is_open(); }
-        void Connect(const std::string& host, uint16_t port);
+        void Connect(const std::string& host, uint16_t port = ::AWEngine::Packet::ProtocolInfo::DefaultPort);
         //TODO ConnectAsync
         void Disconnect();
         //TODO DisconnectAsync
@@ -72,7 +89,7 @@ namespace AWEngine
         bool EnableReceivedQueue = true;
     public:
         template<Packet::PacketConcept_ToServer TP>
-        inline void Send(const TP& packet) { ::AWEngine::Packet::PacketWrapper::WritePacket(m_Socket, packet); }
+        inline void Send(const TP& packet) { ::AWEngine::Packet::PacketWrapper::WritePacket(m_Socket, packet); m_SentPacketCount++; }
         template<Packet::PacketConcept_ToServer TP>
         inline void Send(const std::unique_ptr<TP>& packet) { Send(*packet); }
     public:
@@ -82,6 +99,14 @@ namespace AWEngine
     private:
         bool m_Closing = false;
         std::thread m_ReceiveThread = {};
+
+    // Stats
+    private:
+        std::size_t m_SentPacketCount = 0;
+        std::size_t m_ReceivedPacketCount = 0;
+    public:
+        [[nodiscard]] inline std::size_t SentPacketCount()     const noexcept { return m_SentPacketCount; }
+        [[nodiscard]] inline std::size_t ReceivedPacketCount() const noexcept { return m_ReceivedPacketCount; }
 
     public:
         /// Retrieve information from a server.

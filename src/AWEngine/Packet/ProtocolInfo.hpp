@@ -1,8 +1,20 @@
 #pragma once
 #include <AWEngine/Util/Core_Packet.hpp>
 
+#include "PacketBuffer.hpp"
+
 namespace AWEngine::Packet
 {
+    AWE_CLASS_UPTR(IPacket);
+
+    typedef uint8_t PacketID_t;
+    static const std::size_t PacketID_Count = static_cast<std::size_t>(std::numeric_limits<PacketID_t>::max()) + 1;
+
+    typedef uint32_t ProtocolVersion_t;
+
+    typedef std::function<IPacket_uptr(PacketBuffer&, PacketID_t)> PacketParser_t;
+    typedef std::array<PacketParser_t, PacketID_Count> PacketParserList_t;
+
     typedef uint32_t ProtocolVersion_t;
 
     static const std::size_t GameName_Length = 8;
@@ -50,6 +62,10 @@ namespace AWEngine::Packet
     public:
         static const ProtocolVersion_t ProtocolVersion;
         static const GameName_t GameName;
+
+    public:
+        static PacketParserList_t ParsersToClient;
+        static PacketParserList_t ParsersToServer;
 
     public:
         template<std::size_t N>
