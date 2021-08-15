@@ -45,7 +45,7 @@ namespace AWEngine::Packet
 
         PacketHeader header = {};
         in.read(reinterpret_cast<char*>(&header), sizeof(PacketHeader));
-        header.Size = le16toh(header.Size);
+        //header.Size = le16toh(header.Size);
 
         if(header.Size > PacketBuffer::MaxSize)
             throw std::runtime_error("Packet size exceeded maximum allowed size");

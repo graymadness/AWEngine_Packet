@@ -13,12 +13,15 @@
     #error "unsupported char size"
 #endif
 
-#include "../../portable_endian.h"
+//#include <WinSDKVer.h>
+//#include "../../portable_endian.h"
 
 namespace AWEngine::Packet
 {
+#ifndef _MSC_VER
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+#endif
     class PacketBuffer
     {
     public:
@@ -254,7 +257,7 @@ namespace AWEngine::Packet
         {
             static_assert(sizeof(value) == 2);
 
-            value = htole16(value);
+            //value = htole16(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
                 buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
@@ -264,9 +267,9 @@ namespace AWEngine::Packet
         {
             static_assert(sizeof(value) == 2);
 
-            uint16_t v = htole16(value);
+            /*uint16_t v = htole16(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
-                buffer.Write(reinterpret_cast<const uint8_t*>(&v)[i]);
+                buffer.Write(reinterpret_cast<const uint8_t*>(&v)[i]);*/
 
             return buffer;
         }
@@ -277,7 +280,7 @@ namespace AWEngine::Packet
             uint16_t v = 0;
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&v)[i] = buffer.Read();
-            value = le16toh(v);
+            //value = le16toh(v);
 
             return buffer;
         }
@@ -287,7 +290,7 @@ namespace AWEngine::Packet
 
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&value)[i] = buffer.Read();
-            value = le16toh(value);
+            //value = le16toh(value);
 
             return buffer;
         }
@@ -298,7 +301,7 @@ namespace AWEngine::Packet
         {
             static_assert(sizeof(value) == 4);
 
-            value = htole32(value);
+            //value = htole32(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
                 buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
@@ -308,7 +311,7 @@ namespace AWEngine::Packet
         {
             static_assert(sizeof(value) == 4);
 
-            value = htole32(value);
+            //value = htole32(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
                 buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
@@ -321,7 +324,7 @@ namespace AWEngine::Packet
             uint32_t v = 0;
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&v)[i] = buffer.Read();
-            value = le32toh(v);
+            //value = le32toh(v);
 
             return buffer;
         }
@@ -331,7 +334,7 @@ namespace AWEngine::Packet
 
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&value)[i] = buffer.Read();
-            value = le32toh(value);
+            //value = le32toh(value);
 
             return buffer;
         }
@@ -342,7 +345,7 @@ namespace AWEngine::Packet
         {
             static_assert(sizeof(value) == 8);
 
-            value = htole64(value);
+            //value = htole64(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
                 buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
@@ -352,7 +355,7 @@ namespace AWEngine::Packet
         {
             static_assert(sizeof(value) == 8);
 
-            value = htole64(value);
+            //value = htole64(value);
             for(std::size_t i = 0; i < sizeof(value); i++)
                 buffer.Write(reinterpret_cast<const uint8_t*>(&value)[i]);
 
@@ -365,7 +368,7 @@ namespace AWEngine::Packet
             uint64_t v = 0;
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&v)[i] = buffer.Read();
-            value = le64toh(v);
+            //value = le64toh(v);
 
             return buffer;
         }
@@ -375,7 +378,7 @@ namespace AWEngine::Packet
 
             for(std::size_t i = 0; i < sizeof(value); i++)
                 reinterpret_cast<char*>(&value)[i] = buffer.Read();
-            value = le64toh(value);
+            //value = le64toh(value);
 
             return buffer;
         }
@@ -528,5 +531,7 @@ namespace AWEngine::Packet
             return buffer;
         }
     };
+#ifndef _MSC_VER
 #pragma clang diagnostic pop
+#endif
 }

@@ -4,6 +4,7 @@
 
 #include <asio.hpp>
 #include <iostream>
+#include <AWEngine/Util/Core.hpp>
 
 namespace AWEngine::Packet
 {

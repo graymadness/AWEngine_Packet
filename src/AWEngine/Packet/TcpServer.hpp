@@ -6,6 +6,7 @@
 #include <iostream>
 #include <functional>
 #include <utility>
+#include <AWEngine/Util/Core.hpp>
 
 namespace AWEngine::Packet
 {
