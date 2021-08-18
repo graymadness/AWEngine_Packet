@@ -68,7 +68,7 @@ endif()
 
 # Game Name
 if(DEFINED AWE_PACKET_GAME_NAME)
-    if(AWE_PACKET_GAME_NAME MATCHES "^[A-Z]+$")
+    if(AWE_PACKET_GAME_NAME MATCHES "^[A-Z_]+$")
         message(NOTICE "Protocol Version set to ${AWE_PACKET_GAME_NAME}")
         target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_GAME_NAME="${AWE_PACKET_GAME_NAME}")
     else()
