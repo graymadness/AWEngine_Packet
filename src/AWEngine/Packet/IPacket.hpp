@@ -1,54 +1,67 @@
 #pragma once
+#include <AWEngine/Util/Core_Packet.hpp>
 
 #include <memory>
 #include <map>
 #include <functional>
 
-#include "Direction.hpp"
-#include "PacketBuffer.hpp"
+#include "ProtocolInfo.hpp"
 
 namespace AWEngine::Packet
 {
-    class IPacket;
+    AWE_STRUCT(PacketHeader)
+    {
+        PacketID_t ID;
+        uint16_t Size;
+        PacketFlags Flags;
+    };
 
-    typedef uint8_t PacketID_t;
-    typedef std::function<std::shared_ptr<IPacket>(PacketBuffer&, PacketID_t)> PacketParser_t;
+    template<typename T>
+    concept PacketConcept = std::is_base_of<IPacket, T>::value;
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-    class IPacket
+    AWE_CLASS_UPTR(IPacket)
     {
     public:
-        IPacket(Direction destination, PacketID_t id)
-         : m_Destination(destination), m_ID(id)
-        {
-        }
+        explicit IPacket() = default;
+        explicit IPacket(PacketBuffer& in) {}
 
-    public:
         virtual ~IPacket() = default;
 
     public:
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-        const Direction m_Destination;
-        const PacketID_t m_ID;
-#pragma clang diagnostic pop
+        static std::size_t CompressionThreshold;
 
     public:
-        virtual void Write(PacketBuffer& buffer) const = 0;
+        virtual void Write(PacketBuffer& out) const = 0;
 
     public:
-        static std::shared_ptr<IPacket> Read(std::istream& in, Direction direction);
-        static void RegisterParser(Direction direction, PacketID_t id, const PacketParser_t& parser) { GetParserFromDirection(direction).emplace(id, parser); }
-    private:
-        static std::map<PacketID_t, PacketParser_t> s_Packets_ToClient;
-        static std::map<PacketID_t, PacketParser_t> s_Packets_ToServer;
-        static std::map<PacketID_t, PacketParser_t>& GetParserFromDirection(Direction direction) { return direction == Direction::ToClient ? s_Packets_ToClient : s_Packets_ToServer; }
+        /// Struct used to identify the packet
+        /// Required to be able to send the packet as it defines the ID of the packet.
+        template<::AWEngine::Packet::Direction DIR, PacketID_t ID>
+        struct PacketInfo
+        {
+            [[nodiscard]] inline constexpr        ::AWEngine::Packet::Direction Direction() const noexcept { return DIR; }
+            [[nodiscard]] inline constexpr        PacketID_t                    PacketID()  const noexcept { return ID; }
 
+            [[nodiscard]] inline consteval static ::AWEngine::Packet::Direction s_Direction() noexcept { return DIR; }
+            [[nodiscard]] inline consteval static PacketID_t                    s_PacketID()  noexcept { return ID; }
+        };
     };
-#pragma clang diagnostic pop
+
+    template<typename T>
+    concept PacketConcept_ToClient = std::is_base_of<IPacket, T>::value && T::s_Direction() == ::AWEngine::Packet::Direction::ToClient;
+    template<typename T>
+    concept PacketConcept_ToServer = std::is_base_of<IPacket, T>::value && T::s_Direction() == ::AWEngine::Packet::Direction::ToServer;
 }
 
 #ifndef AWE_PACKET
-    #define AWE_PACKET(awe_name) class awe_name : public ::AWEngine::Packet::IPacket
+#   define AWE_PACKET(packet_name, packet_direction, packet_id)\
+    AWE_CLASS_UPTR(packet_name) : public ::AWEngine::Packet::IPacket, public ::AWEngine::Packet::IPacket::PacketInfo<::AWEngine::Packet::Direction::packet_direction, packet_id>
+#endif
+
+#ifndef AWE_PACKET_PARSER
+#   define AWE_PACKET_PARSER(packet_name)\
+    [](::AWEngine::Packet::PacketBuffer& in, ::AWEngine::Packet::PacketID_t id) -> ::AWEngine::Packet::IPacket_uptr\
+    {\
+        return std::make_unique<packet_name>(in);\
+    }
 #endif

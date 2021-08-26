@@ -1,34 +1,32 @@
 #pragma once
 
-#include "../IPacket.hpp"
+#include <AWEngine/Packet/IPacket.hpp>
 
 namespace AWEngine::Packet::ToServer
 {
-    AWE_PACKET(Pong)
+    /// Response to `Ping` packet from the server.
+    /// Do not try to guess the `Payload`.
+    /// Sending multiple `Pong` packets after receiving `Ping` packet may result in termination of the connection by the server.
+    AWE_PACKET(Pong, ToServer, 0xFE)
     {
     public:
         explicit Pong(uint64_t payload)
-                : IPacket(Direction::ToServer, 0xFEu),
-                  m_Payload(payload)
+                : Payload(payload)
         {
         }
 
-    public:
-        uint64_t m_Payload;
-
-    public:
-        void Write(PacketBuffer &buffer) const override
+        explicit Pong(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
         {
-            buffer << static_cast<uint64_t>(m_Payload);
+            in >> Payload;
         }
 
     public:
-        static std::shared_ptr<IPacket> Parse(PacketBuffer& buffer, PacketID_t id)
-        {
-            uint64_t payload;
-            buffer >> payload;
+        uint64_t Payload;
 
-            return std::make_shared<Pong>(payload);
+    public:
+        void Write(PacketBuffer& out) const override
+        {
+            out << static_cast<uint64_t>(Payload);
         }
     };
 }

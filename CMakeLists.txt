@@ -6,14 +6,16 @@ set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
 cmake_policy(SET CMP0077 NEW) # set() overrides option()
 
-#--------------------------------
-# Debug Options
-#--------------------------------
-
 add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>") # Define DEBUG in Debug builds
 
 #--------------------------------
-# Compiler configuration
+# Options
+#--------------------------------
+
+option(AWE_PACKET_COROUTINE "Enable support of coroutines (async networking)" ON)
+
+#--------------------------------
+# Configuration
 #--------------------------------
 
 if(MINGW)
@@ -36,14 +38,58 @@ file(GLOB_RECURSE AWE_Packet_SOURCE src/*.hpp src/*.cpp src/*.h src/*.c)
 add_library(AWEngine_Packet STATIC ${AWE_Packet_SOURCE})
 target_include_directories(AWEngine_Packet PUBLIC src/)
 
-target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
-target_link_libraries(AWEngine_Packet asio)
+target_link_libraries(AWEngine_Packet asio pthread)
 
-if(MSVC)
-    target_compile_options(AWEngine_Packet PRIVATE /FI"${PROJECT_SOURCE_DIR}/src/AWEngine/Util/Core.hpp")
+if(GCC)
+    target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
+endif()
+if(WIN32)
+    target_link_libraries(AWEngine_Packet ws2_32)
+endif()
+
+# JSON Support
+if(TARGET nlohmann_json)
+    message(NOTICE "nlohmann's JSON library detected")
+
+    set(AWE_PACKET_LIB_JSON=ON)
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_LIB_JSON=ON)
+    target_link_libraries(AWEngine_Packet nlohmann_json)
+endif()
+
+# Protocol Version
+if(DEFINED AWE_PACKET_PROTOCOL_VERSION)
+    if(AWE_PACKET_PROTOCOL_VERSION MATCHES "^[0-9]+$")
+        message(NOTICE "Protocol Version set to ${AWE_PACKET_PROTOCOL_VERSION}")
+        target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_PROTOCOL_VERSION=${AWE_PACKET_PROTOCOL_VERSION})
+    else()
+        message(FATAL_ERROR "Invalid Protocol Version '${AWE_PACKET_PROTOCOL_VERSION}' - only numeric value is allowed")
+    endif()
+endif()
+
+# Game Name
+if(DEFINED AWE_PACKET_GAME_NAME)
+    if(AWE_PACKET_GAME_NAME MATCHES "^[A-Z_]+$")
+        message(NOTICE "Protocol Version set to ${AWE_PACKET_GAME_NAME}")
+        target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_GAME_NAME="${AWE_PACKET_GAME_NAME}")
+    else()
+        message(FATAL_ERROR "Invalid Protocol Game Name '${AWE_PACKET_GAME_NAME}' - use only UPPER CASE letters")
+    endif()
+endif()
+
+# Minimum / Maximum threads for Packet Server (used for IO Context)
+if(DEFINED AWE_PACKET_SERVER_THREAD_MIN)
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MIN=${AWE_PACKET_SERVER_THREAD_MIN})
 else()
-    # GCC or Clang
-    target_compile_options(AWEngine_Packet PRIVATE -include ${PROJECT_SOURCE_DIR}/src/AWEngine/Util/Core.hpp)
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MIN=1)
+endif()
+if(DEFINED AWE_PACKET_SERVER_THREAD_MAX)
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MAX=${AWE_PACKET_SERVER_THREAD_MAX})
+else()
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MAX=1)
+endif()
+
+if(AWE_PACKET_COROUTINE)
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_COROUTINE=1)
 endif()
 
 #--------------------------------
@@ -51,7 +97,6 @@ endif()
 #--------------------------------
 
 if(BUILD_TESTING)
-    include(CTest)
     enable_testing()
 
     add_subdirectory(tests)

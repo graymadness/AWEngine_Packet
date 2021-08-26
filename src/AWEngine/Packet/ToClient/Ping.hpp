@@ -2,16 +2,19 @@
 
 #include <chrono>
 
-#include "../IPacket.hpp"
+#include <AWEngine/Packet/IPacket.hpp>
 
 namespace AWEngine::Packet::ToClient
 {
-    AWE_PACKET(Ping)
+    /// Server requesting immediate response from the client to measure the delay.
+    /// Server expects Pong response with same `Payload` otherwise should terminates the connection.
+    /// The payload is usually current UNIX time but it is not required.
+    /// `PacketClient` responds to this packet automatically.
+    AWE_PACKET(Ping, ToClient, 0xFE)
     {
     public:
         explicit Ping(uint64_t payload)
-                : IPacket(Direction::ToClient, 0xFEu),
-                  m_Payload(payload)
+                : Payload(payload)
         {
         }
         /// New instance with current time
@@ -20,22 +23,18 @@ namespace AWEngine::Packet::ToClient
         {
         }
 
-    public:
-        uint64_t m_Payload;
-
-    public:
-        void Write(PacketBuffer &buffer) const override
+        explicit Ping(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
         {
-            buffer << static_cast<uint64_t>(m_Payload);
+            in >> Payload;
         }
 
     public:
-        static std::shared_ptr<IPacket> Parse(PacketBuffer& buffer, PacketID_t id)
-        {
-            uint64_t payload;
-            buffer >> payload;
+        uint64_t Payload;
 
-            return std::make_shared<Ping>(payload);
+    public:
+        void Write(PacketBuffer& out) const override
+        {
+            out << static_cast<uint64_t>(Payload);
         }
     };
 }

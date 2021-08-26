@@ -69,19 +69,41 @@ namespace AWEngine::Util
 
     public:
         /// Add item to start
-        void push_front(const T& item)
+        template<std::enable_if_t<std::is_move_constructible<T>::value, bool> = true>
+        inline void push_front(const T& item)
         {
             std::scoped_lock lock(m_MutesQueue);
-            m_Data.emplace_front(std::move(item));
+            m_Data.push_front(std::forward<T>(item));
+
+            std::unique_lock<std::mutex> ul(m_MutexItemPushed);
+            m_ItemPushed.notify_one();
+        }
+        /// Add item to start
+        template<std::enable_if_t<std::is_move_constructible<T>::value, bool> = false>
+        inline void push_front(T&& item)
+        {
+            std::scoped_lock lock(m_MutesQueue);
+            m_Data.push_front(std::forward<T>(item));
 
             std::unique_lock<std::mutex> ul(m_MutexItemPushed);
             m_ItemPushed.notify_one();
         }
         /// Add item to end
-        void push_back(const T& item)
+        template<std::enable_if_t<std::is_move_constructible<T>::value, bool> = true>
+        inline void push_back(const T& item)
         {
             std::scoped_lock lock(m_MutesQueue);
-            m_Data.emplace_back(std::move(item));
+            m_Data.push_back(std::forward<T>(item));
+
+            std::unique_lock<std::mutex> ul(m_MutexItemPushed);
+            m_ItemPushed.notify_one();
+        }
+        /// Add item to end
+        template<std::enable_if_t<std::is_move_constructible<T>::value, bool> = false>
+        inline void push_back(T&& item)
+        {
+            std::scoped_lock lock(m_MutesQueue);
+            m_Data.push_back(std::forward<T>(item));
 
             std::unique_lock<std::mutex> ul(m_MutexItemPushed);
             m_ItemPushed.notify_one();
