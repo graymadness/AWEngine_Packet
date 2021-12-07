@@ -9,6 +9,7 @@
 
 #include <AWEngine/Packet/IPacket.hpp>
 #include <AWEngine/Packet/ProtocolInfo.hpp>
+#include <AWEngine/Packet/Util/LocaleInfo.hpp>
 
 namespace AWEngine::Packet::ToClient::Login
 {
@@ -23,6 +24,7 @@ namespace AWEngine::Packet::ToClient::Login
     ///     "max": 13
     ///   }
     /// }
+    /// Try not to provide user-specific information (like usernames) as it would allow tracking of players.
     AWE_PACKET(ServerInfo, ToClient, 0x00)
     {
     public:
@@ -53,9 +55,10 @@ namespace AWEngine::Packet::ToClient::Login
         }
 
     public:
-        std::array<char, 8> GameName;
-        uint32_t            ProtocolVersion;
-        std::string         JsonString;
+        std::array<char, 8>                GameName;
+        uint32_t                           ProtocolVersion;
+        AWEngine::Packet::Util::LocaleInfo ServerLocale;
+        std::string                        JsonString;
 
 #ifdef AWE_PACKET_LIB_JSON
     public:

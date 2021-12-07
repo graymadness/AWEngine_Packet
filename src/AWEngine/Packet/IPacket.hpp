@@ -1,5 +1,5 @@
 #pragma once
-#include <AWEngine/Util/Core_Packet.hpp>
+#include <AWEngine/Packet/Util/Core_Packet.hpp>
 
 #include <memory>
 #include <map>

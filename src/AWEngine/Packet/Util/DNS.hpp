@@ -1,6 +1,11 @@
 #pragma once
 
-namespace AWEngine::Util
+#include <vector>
+#include <string>
+
+#include "AWEngine/Packet/asio.hpp"
+
+namespace AWEngine::Packet::Util
 {
     class DNS
     {

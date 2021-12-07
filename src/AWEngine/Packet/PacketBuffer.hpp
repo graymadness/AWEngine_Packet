@@ -1,5 +1,5 @@
 #pragma once
-#include <AWEngine/Util/Core_Packet.hpp>
+#include <AWEngine/Packet/Util/Core_Packet.hpp>
 
 #include <climits>
 #include <cstdint>
@@ -9,6 +9,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <iostream>
+#include <limits>
 
 #if CHAR_BIT != 8
     #error "unsupported char size"
@@ -16,7 +17,7 @@
 
 #include <portable_endian.h>
 
-#include <AWEngine/Util/Asio.hpp>
+#include <AWEngine/Packet/asio.hpp>
 
 namespace AWEngine::Packet
 {

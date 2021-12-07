@@ -1,18 +1,18 @@
 #pragma once
-#include <AWEngine/Util/Core_Packet.hpp>
+#include <AWEngine/Packet/Util/Core_Packet.hpp>
 
 #include <thread>
 #include <queue>
 
-#include <asio.hpp>
+#include "asio.hpp"
 
-#include <AWEngine/Packet/IPacket.hpp>
-#include <AWEngine/Packet/PacketWrapper.hpp>
-#include <AWEngine/Packet/ProtocolInfo.hpp>
-#include <AWEngine/Packet/ToClient/Login/ServerInfo.hpp>
-#include <AWEngine/Util/ThreadSafeQueue.h>
+#include "IPacket.hpp"
+#include "PacketWrapper.hpp"
+#include "ProtocolInfo.hpp"
+#include "AWEngine/Packet/ToClient/Login/ServerInfo.hpp"
+#include <AWEngine/Packet/Util/ThreadSafeQueue.h>
 
-namespace AWEngine
+namespace AWEngine::Packet
 {
     AWE_ENUM(DisconnectReason, uint8_t)
     {

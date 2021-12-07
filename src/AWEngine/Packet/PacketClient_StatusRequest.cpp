@@ -1,11 +1,11 @@
 #include "PacketClient.hpp"
 
-#include <AWEngine/Packet/PacketWrapper.hpp>
+#include "PacketWrapper.hpp"
 
-#include <AWEngine/Packet/ToServer/Login/Init.hpp>
-#include <AWEngine/Packet/ToClient/Login/ServerInfo.hpp>
+#include "AWEngine/Packet/ToServer/Login/Init.hpp"
+#include "AWEngine/Packet/ToClient/Login/ServerInfo.hpp"
 
-namespace AWEngine
+namespace AWEngine::Packet
 {
     ::AWEngine::Packet::ToClient::Login::ServerInfo PacketClient::GetServerStatus(const std::string& host, uint16_t port)
     {

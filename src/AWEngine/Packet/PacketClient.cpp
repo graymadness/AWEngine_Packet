@@ -1,12 +1,12 @@
 #include "PacketClient.hpp"
 
-#include <AWEngine/Packet/ToClient/Ping.hpp>
-#include <AWEngine/Packet/ToClient/Kick.hpp>
+#include "AWEngine/Packet/ToClient/Ping.hpp"
+#include "AWEngine/Packet/ToClient/Kick.hpp"
 
-#include <AWEngine/Packet/ToServer/Pong.hpp>
-#include <AWEngine/Packet/ToServer/Disconnect.hpp>
+#include "AWEngine/Packet/ToServer/Pong.hpp"
+#include "AWEngine/Packet/ToServer/Disconnect.hpp"
 
-namespace AWEngine
+namespace AWEngine::Packet
 {
     PacketClient::PacketClient(std::size_t maxOutputQueueSize)
             : m_IoContext(),

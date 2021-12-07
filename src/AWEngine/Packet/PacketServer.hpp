@@ -1,11 +1,11 @@
 #pragma once
-#include <AWEngine/Util/Core_Packet.hpp>
+#include <AWEngine/Packet/Util/Core_Packet.hpp>
 
-#include <AWEngine/Util/Asio.hpp>
-#include <AWEngine/Packet/IPacket.hpp>
-#include <AWEngine/Packet/ProtocolInfo.hpp>
+#include <AWEngine/Packet/asio.hpp>
+#include "IPacket.hpp"
+#include "ProtocolInfo.hpp"
 
-namespace AWEngine
+namespace AWEngine::Packet
 {
     AWE_CLASS(PacketServer)
     {

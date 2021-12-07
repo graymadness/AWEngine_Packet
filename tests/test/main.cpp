@@ -1,7 +1,7 @@
 #include <cassert>
 
-#include <AWEngine/PacketServer.hpp>
-#include <AWEngine/PacketClient.hpp>
+#include "AWEngine/Packet/PacketServer.hpp"
+#include "AWEngine/Packet/PacketClient.hpp"
 
 void StartServer();
 void StartClient();

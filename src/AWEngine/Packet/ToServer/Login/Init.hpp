@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include <AWEngine/Packet/IPacket.hpp>
+#include <AWEngine/Packet/Util/LocaleInfo.hpp>
 
 namespace AWEngine::Packet::ToServer::Login
 {
@@ -61,9 +62,10 @@ namespace AWEngine::Packet::ToServer::Login
         }
 
     public:
-        std::array<char, 8> GameName;
-        uint32_t            ProtocolVersion;
-        NextStep            Next;
+        std::array<char, 8>                GameName;
+        uint32_t                           ProtocolVersion;
+        AWEngine::Packet::Util::LocaleInfo ClientLocale;
+        NextStep                           Next;
 
     public:
         inline void Write(PacketBuffer& out) const override;

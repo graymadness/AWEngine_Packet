@@ -8,10 +8,10 @@
 #   define AWE_PACKET_SERVER_THREAD_MAX 1
 #endif
 
-#include <AWEngine/Util/Asio.hpp>
+#include <AWEngine/Packet/asio.hpp>
 #include <cstdio>
 
-namespace AWEngine
+namespace AWEngine::Packet
 {
 #ifdef AWE_PACKET_COROUTINE
     asio::awaitable<void> PacketServer::ProcessSocketAsync(asio::tcp_socket socket)
