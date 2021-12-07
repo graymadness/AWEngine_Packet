@@ -41,6 +41,9 @@ namespace AWEngine::Packet::Util
     inline std::istream& operator>>(std::istream&, LocaleInfo&) noexcept;
     /// May throw exception if provided with not-valid LocaleInfo
     inline std::ostream& operator<<(std::ostream&, LocaleInfo);
+
+    inline PacketBuffer& operator>>(PacketBuffer& buffer, LocaleInfo& value);
+    inline PacketBuffer& operator<<(PacketBuffer& buffer, LocaleInfo value);
 }
 
 namespace AWEngine::Packet::Util
@@ -98,5 +101,67 @@ namespace AWEngine::Packet::Util
         }
 
         return out;
+    }
+
+    /// Always reads 4 bytes
+    inline PacketBuffer& operator>>(PacketBuffer& buffer, LocaleInfo& locale)
+    {
+        // Language Code
+        locale.LanguageCode.LeftChar  = static_cast<char>(buffer.Read());
+        locale.LanguageCode.RightChar = static_cast<char>(buffer.Read());
+        if(locale.LanguageCode && locale.LanguageCode.IsValid())
+            locale.LanguageCode = locale.LanguageCode.ChangeCase(false);
+        else
+        {
+            locale = {};
+            buffer.Skip(2); // Country Code
+            return buffer;
+        }
+
+        // Country Code
+        locale.CountryCode.LeftChar  = static_cast<char>(buffer.Read());
+        locale.CountryCode.RightChar = static_cast<char>(buffer.Read());
+        if(locale.CountryCode && locale.CountryCode.IsValid())
+            locale.CountryCode = locale.CountryCode.ChangeCase(true);
+        else
+            locale.CountryCode = {};
+
+        return buffer;
+    }
+
+    /// Always writes 4 bytes
+    inline PacketBuffer& operator<<(PacketBuffer& buffer, LocaleInfo locale)
+    {
+        LocaleDoubleChar languageCode = locale.LanguageCode.ChangeCase(false);
+        if(languageCode && languageCode.IsValid())
+        {
+            // Language Code
+            buffer.Write(languageCode.LeftChar);
+            buffer.Write(languageCode.RightChar);
+
+            // Country Code
+            LocaleDoubleChar countryCode = locale.CountryCode.ChangeCase(true);
+            if(countryCode && countryCode.IsValid())
+            {
+                buffer.Write(countryCode.LeftChar);
+                buffer.Write(countryCode.RightChar);
+            }
+            else
+            {
+                buffer.Write(0);
+                buffer.Write(0);
+            }
+        }
+        else
+        {
+            // Language Code
+            buffer.Write(0);
+            buffer.Write(0);
+            // Country Code
+            buffer.Write(0);
+            buffer.Write(0);
+        }
+
+        return buffer;
     }
 }

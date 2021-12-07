@@ -23,7 +23,11 @@ namespace AWEngine::Packet
         Packet::PacketBuffer tmpBuffer;
 
         // Send info request
-        Packet::PacketWrapper::WritePacket(socket, ::AWEngine::Packet::ToServer::Login::Init(::AWEngine::Packet::ToServer::Login::Init::NextStep::ServerInfo), tmpBuffer);
+        Packet::PacketWrapper::WritePacket(
+            socket,
+            ::AWEngine::Packet::ToServer::Login::Init(::AWEngine::Packet::ToServer::Login::Init::NextStep::ServerInfo, {}), //TODO Client locale
+            tmpBuffer
+        );
 
         // Read response
         {

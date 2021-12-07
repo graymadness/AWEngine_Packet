@@ -31,15 +31,17 @@ namespace AWEngine::Packet::ToClient::Login
         explicit ServerInfo(
                 std::array<char, 8> gameName,
                 uint32_t            protocolVersion,
+                Util::LocaleInfo    serverLocale,
                 std::string         jsonString
         )
                 :  GameName(gameName),
                    ProtocolVersion(protocolVersion),
+                   ServerLocale(serverLocale),
                    JsonString(std::move(jsonString))
         {
         }
 
-        explicit ServerInfo(const std::string& jsonString) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, jsonString) {}
+        explicit ServerInfo(const std::string& jsonString, Util::LocaleInfo serverLocale = {}) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, serverLocale, jsonString) {}
 #ifdef AWE_PACKET_LIB_JSON
         explicit ServerInfo(
                 std::array<char, 8>   gameName,
@@ -51,14 +53,14 @@ namespace AWEngine::Packet::ToClient::Login
 
         explicit ServerInfo(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
         {
-            in >> GameName >> ProtocolVersion >> JsonString;
+            in >> GameName >> ProtocolVersion >> ServerLocale >> JsonString;
         }
 
     public:
-        std::array<char, 8>                GameName;
-        uint32_t                           ProtocolVersion;
-        AWEngine::Packet::Util::LocaleInfo ServerLocale;
-        std::string                        JsonString;
+        std::array<char, 8> GameName;
+        uint32_t            ProtocolVersion;
+        Util::LocaleInfo    ServerLocale;
+        std::string         JsonString;
 
 #ifdef AWE_PACKET_LIB_JSON
     public:
@@ -68,7 +70,7 @@ namespace AWEngine::Packet::ToClient::Login
     public:
         void Write(PacketBuffer &out) const override
         {
-            out << GameName << ProtocolVersion << JsonString;
+            out << GameName << ProtocolVersion << ServerLocale << JsonString;
         }
     };
 }

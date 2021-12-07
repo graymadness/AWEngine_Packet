@@ -32,6 +32,7 @@ namespace AWEngine::Packet::Util
         /// Checks whenever there is value or is empty
         [[nodiscard]] inline operator bool() const noexcept { return NumericValue != 0; } // NOLINT(google-explicit-constructor)
         [[nodiscard]] inline bool IsValid() const noexcept;
+        [[nodiscard]] inline LocaleDoubleChar ChangeCase(bool upperCase) const noexcept;
 
         // std::stream
         inline void Write(std::ostream&, bool upperCase) const;
@@ -76,24 +77,38 @@ namespace AWEngine::Packet::Util
         }
     }
 
+    LocaleDoubleChar LocaleDoubleChar::ChangeCase(bool upperCase) const noexcept
+    {
+        if(!IsValid())
+            return {}; // Invalid
+        if(!operator bool())
+            return {}; // Empty
+
+        static const char lowerToUpperDiff = 'a' - 'A';
+        LocaleDoubleChar outDoubleChar = {};
+
+        if(upperCase)
+            outDoubleChar.LeftChar = static_cast<char>((LeftChar >= 'a' ? LeftChar - lowerToUpperDiff : LeftChar));
+        else
+            outDoubleChar.LeftChar = static_cast<char>((LeftChar <= 'Z' ? LeftChar + lowerToUpperDiff : LeftChar));
+
+        if(upperCase)
+            outDoubleChar.RightChar = static_cast<char>((RightChar >= 'a' ? RightChar - lowerToUpperDiff : RightChar));
+        else
+            outDoubleChar.RightChar = static_cast<char>((RightChar <= 'Z' ? RightChar + lowerToUpperDiff : RightChar));
+
+        return outDoubleChar;
+    }
+
     void LocaleDoubleChar::Write(std::ostream& out, bool upperCase) const
     {
         if(!IsValid())
             throw std::runtime_error("Cannot write invalid value");
-        if(!operator bool())
-            return; // Empty won't write anything
 
-        char lowerToUpperDiff = 'a' - 'A';
+        LocaleDoubleChar correctCase = ChangeCase(upperCase);
 
-        if(upperCase)
-            out << static_cast<char>((LeftChar >= 'a' ? LeftChar - lowerToUpperDiff : LeftChar));
-        else
-            out << static_cast<char>((LeftChar <= 'Z' ? LeftChar + lowerToUpperDiff : LeftChar));
-
-        if(upperCase)
-            out << static_cast<char>((RightChar >= 'a' ? RightChar - lowerToUpperDiff : RightChar));
-        else
-            out << static_cast<char>((RightChar <= 'Z' ? RightChar + lowerToUpperDiff : RightChar));
+        if(correctCase)
+            out << correctCase.LeftChar << correctCase.RightChar;
     }
 
     std::istream& operator>>(std::istream& in, LocaleDoubleChar& doubleChar) noexcept

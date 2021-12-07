@@ -41,24 +41,30 @@ namespace AWEngine::Packet::ToServer::Login
     public:
         explicit Init(
                 std::array<char, 8> gameName,
-                uint32_t protocolVersion,
-                NextStep next
+                uint32_t            protocolVersion,
+                Util::LocaleInfo    clientLocale,
+                NextStep            next
         )
                 :  GameName(gameName),
                    ProtocolVersion(protocolVersion),
+                   ClientLocale(clientLocale),
                    Next(next)
         {
         }
-        explicit Init(NextStep next)
+        explicit Init(
+                NextStep         next,
+                Util::LocaleInfo clientLocale
+                )
                 :  GameName(ProtocolInfo::GameName),
                    ProtocolVersion(ProtocolInfo::ProtocolVersion),
+                   ClientLocale(clientLocale),
                    Next(next)
         {
         }
 
         explicit Init(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
         {
-            in >> GameName >> ProtocolVersion >> reinterpret_cast<uint8_t&>(Next);
+            in >> GameName >> ProtocolVersion >> ClientLocale >> reinterpret_cast<uint8_t&>(Next);
         }
 
     public:
@@ -78,6 +84,6 @@ namespace AWEngine::Packet::ToServer::Login
 
     void Init::Write(PacketBuffer& out) const
     {
-        out << GameName << ProtocolVersion << Next;
+        out << GameName << ProtocolVersion << ClientLocale << Next;
     }
 }
