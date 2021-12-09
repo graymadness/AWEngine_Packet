@@ -8,7 +8,8 @@ namespace AWEngine::Packet::Util
 {
     struct LocaleDoubleChar
     {
-        // Values
+    // Values
+    public:
         union
         {
             /// Lover-case a-z characters
@@ -21,25 +22,33 @@ namespace AWEngine::Packet::Util
             uint16_t NumericValue;
         };
 
-        // Constructor
+    // Constructor
+    public:
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "cppcoreguidelines-pro-type-member-init"
         inline LocaleDoubleChar() noexcept : LeftChar('\0'), RightChar('\0') { }
         inline LocaleDoubleChar(char left, char right) noexcept : LeftChar(left), RightChar(right) { }
 #pragma clang diagnostic pop
 
-        // Utilities
+    // Utilities
+    public:
         /// Checks whenever there is value or is empty
         [[nodiscard]] inline operator bool() const noexcept { return NumericValue != 0; } // NOLINT(google-explicit-constructor)
         [[nodiscard]] inline bool IsValid() const noexcept;
         [[nodiscard]] inline LocaleDoubleChar ChangeCase(bool upperCase) const noexcept;
 
-        // std::stream
+    // std::stream
+    public:
         inline void Write(std::ostream&, bool upperCase) const;
     };
     static_assert(sizeof(LocaleDoubleChar) == 2);
 
     inline std::istream& operator>>(std::istream& in, LocaleDoubleChar& doubleChar) noexcept;
+    inline std::ostream& operator>>(std::ostream& out, LocaleDoubleChar doubleChar) noexcept
+    {
+        doubleChar.Write(out, false);
+        return out;
+    }
 }
 
 namespace AWEngine::Packet::Util

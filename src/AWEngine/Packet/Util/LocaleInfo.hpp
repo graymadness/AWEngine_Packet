@@ -5,6 +5,13 @@
 #include <stdexcept>
 
 #include "LocaleDoubleChar.hpp"
+#include <AWEngine/Packet/PacketBuffer.hpp>
+
+// CMakeLists.txt will enable this automatically when https://github.com/nlohmann/json is found as a target `nlohmann_json` (must be created before this library).
+#ifdef AWE_PACKET_LIB_JSON
+#   include <nlohmann/json.hpp>
+#   include <sstream>
+#endif
 
 #ifndef AWE_LOCALE_INFO_SECOND_UPPER_CASE
 #   define AWE_LOCALE_INFO_SECOND_UPPER_CASE 1
@@ -20,7 +27,8 @@ namespace AWEngine::Packet::Util
         LocaleDoubleChar LanguageCode;
         LocaleDoubleChar CountryCode;
 
-        // Constructors
+    // Constructors
+    public:
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "google-explicit-constructor"
         LocaleInfo() noexcept : LanguageCode(), CountryCode() {}
@@ -28,23 +36,40 @@ namespace AWEngine::Packet::Util
         LocaleInfo(const std::string&) noexcept;
 #pragma clang diagnostic pop
 
-        // Utilities
+    // Utilities
+    public:
         static const char Separator = '-';
-        /// Checks whenever there is value or is empty
+        /// Checks whenever there is value or is empty.
         [[nodiscard]] inline operator bool() const noexcept { return LanguageCode; } // NOLINT(google-explicit-constructor)
         /// Checks whenever value is valid.
         /// Empty LanguageCode or CountryCode are valid but empty LanguageCode with non-empty CountryCode is not valid.
         [[nodiscard]] inline bool IsValid() const noexcept { return LanguageCode.IsValid() && CountryCode.IsValid() && !(!LanguageCode && CountryCode); }
+        /// Current locale.
+        /// May return empty.
+        [[nodiscard]] static LocaleInfo Current() noexcept;
     };
     static_assert(sizeof(LocaleInfo) == 4);
 
+    // std::stream
     inline std::istream& operator>>(std::istream&, LocaleInfo&) noexcept;
     /// May throw exception if provided with not-valid LocaleInfo
     inline std::ostream& operator<<(std::ostream&, LocaleInfo);
 
-    inline PacketBuffer& operator>>(PacketBuffer& buffer, LocaleInfo& value);
-    inline PacketBuffer& operator<<(PacketBuffer& buffer, LocaleInfo value);
+    // PacketBuffer
+    inline PacketBuffer& operator>>(PacketBuffer&, LocaleInfo&);
+    inline PacketBuffer& operator<<(PacketBuffer&, LocaleInfo);
 }
+
+#ifdef AWE_PACKET_LIB_JSON
+namespace nlohmann
+{
+    struct adl_serializer<AWEngine::Packet::Util::LocaleInfo>
+    {
+        static void to_json(json& j, const AWEngine::Packet::Util::LocaleInfo& value);
+        static void from_json(const json& j, AWEngine::Packet::Util::LocaleInfo& value);
+    }
+}
+#endif
 
 namespace AWEngine::Packet::Util
 {
@@ -165,3 +190,26 @@ namespace AWEngine::Packet::Util
         return buffer;
     }
 }
+
+#ifdef AWE_PACKET_LIB_JSON
+namespace nlohmann
+{
+    void adl_serializer<AWEngine::Packet::Util::LocaleInfo>::to_json(json& j, const AWEngine::Packet::Util::LocaleInfo& value)
+    {
+        using namespace AWEngine::Packet::Util;
+
+        std::stringstream ss;
+        ss << value;
+        j = ss.str();
+    }
+    void adl_serializer<AWEngine::Packet::Util::LocaleInfo>::from_json(const json& j, AWEngine::Packet::Util::LocaleInfo& value)
+    {
+        using namespace AWEngine::Packet::Util;
+
+        if(j.is_string())
+            value = AWEngine::Packet::Util::LocaleInfo(j.get<std::string>());
+        else
+            value = AWEngine::Packet::Util::LocaleInfo(); // Empty
+    }
+}
+#endif
