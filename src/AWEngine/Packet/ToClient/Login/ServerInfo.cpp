@@ -2,22 +2,17 @@
 
 namespace AWEngine::Packet::ToClient::Login
 {
-    const std::string ServerInfo::Field_MOTD          = "motd";
-    const std::string ServerInfo::Field_ServerName    = "name";
-    const std::string ServerInfo::Field_Website       = "website";
-    const std::string ServerInfo::Field_ServerLocale  = "locale";
-    const std::string ServerInfo::Field_OnlinePlayers = "players.online";
-    const std::string ServerInfo::Field_MaxPlayers    = "players.max";
-    const std::string ServerInfo::Field_Whitelist     = "whitelist";
+    const std::string ServerInfo_Utils::Field_MOTD          = "motd";
+    const std::string ServerInfo_Utils::Field_ServerName    = "name";
+    const std::string ServerInfo_Utils::Field_Website       = "website";
+    const std::string ServerInfo_Utils::Field_ServerLocale  = "locale";
+    const std::string ServerInfo_Utils::Field_OnlinePlayers = "players.online";
+    const std::string ServerInfo_Utils::Field_MaxPlayers    = "players.max";
+    const std::string ServerInfo_Utils::Field_Whitelist     = "whitelist";
 
-    template<typename T>
-    inline static T SimpleJsonParse(const std::string& json, const std::string& key) noexcept = delete;
 
-    /// Looks for this pattern inside JSON: "key": "value"
-    /// Supports
-    /// Returns empty string on invalid JSON or when not found
     template<>
-    inline std::string SimpleJsonParse<std::string>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
+    std::string SimpleJsonParse<std::string>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
     {
         // Key with " surrounding it
         std::string jsonKey = "\"" + key + "\"";
@@ -76,9 +71,8 @@ namespace AWEngine::Packet::ToClient::Login
             return std::string(); // Empty value
         return json.substr(valueStart, valueEnd - valueStart);
     }
-    /// Returns 0 on error or empty value
     template<>
-    inline int SimpleJsonParse<int>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
+    int SimpleJsonParse<int>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
     {
         std::string str = SimpleJsonParse<std::string>(json, key);
         if(str.empty())
@@ -97,9 +91,9 @@ namespace AWEngine::Packet::ToClient::Login
             return 0;
         }
     }
-    /// Returns 0 on error or empty value
+
     template<>
-    inline std::optional<int> SimpleJsonParse<std::optional<int>>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
+    std::optional<int> SimpleJsonParse<std::optional<int>>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
     {
         std::string str = SimpleJsonParse<std::string>(json, key);
         if(str.empty())
@@ -118,10 +112,9 @@ namespace AWEngine::Packet::ToClient::Login
             return {};
         }
     }
-    /// Returns bool based on first character of value (will return `true` for "yogurt").
-    /// No value is returned on error or unknown character.
+
     template<>
-    inline std::optional<bool> SimpleJsonParse<std::optional<bool>>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
+    std::optional<bool> SimpleJsonParse<std::optional<bool>>(const std::string& json, const std::string& key) noexcept //OPTIMIZE?
     {
         std::string value = SimpleJsonParse<std::string>(json, key);
         if(value.empty())
@@ -155,12 +148,4 @@ namespace AWEngine::Packet::ToClient::Login
                 return {};
         }
     }
-
-    std::string         ServerInfo::MOTD()          const noexcept { return SimpleJsonParse<std::string>(        JsonString, Field_MOTD         ); }
-    std::string         ServerInfo::ServerName()    const noexcept { return SimpleJsonParse<std::string>(        JsonString, Field_ServerName   ); }
-    std::string         ServerInfo::Website()       const noexcept { return SimpleJsonParse<std::string>(        JsonString, Field_Website      ); }
-    Util::LocaleInfo    ServerInfo::ServerLocale()  const noexcept { return SimpleJsonParse<std::string>(        JsonString, Field_ServerLocale ); }
-    std::optional<int>  ServerInfo::OnlinePlayers() const noexcept { return SimpleJsonParse<int>(                JsonString, Field_OnlinePlayers); }
-    int                 ServerInfo::MaxPlayers()    const noexcept { return SimpleJsonParse<int>(                JsonString, Field_MaxPlayers   ); }
-    std::optional<bool> ServerInfo::Whitelist()     const noexcept { return SimpleJsonParse<std::optional<bool>>(JsonString, Field_Whitelist    ); }
 }

@@ -10,7 +10,8 @@
 
 namespace AWEngine::Packet
 {
-    PacketClient::PacketClient(
+    template<typename TPacketEnum>
+    PacketClient<TPacketEnum>::PacketClient(
         std::size_t maxReceiveQueueSize
         )
             : m_IoContext(),
@@ -19,16 +20,18 @@ namespace AWEngine::Packet
     {
     }
 
-    PacketClient::~PacketClient()
+    template<typename TPacketEnum>
+    PacketClient<TPacketEnum>::~PacketClient()
     {
         m_Closing = true;
         if(m_ThreadContext.joinable())
             m_ThreadContext.join();
     }
 
-    void PacketClient::Connect(const std::string& host, uint16_t port)
+    template<typename TPacketEnum>
+    void PacketClient<TPacketEnum>::Connect(const std::string& host, uint16_t port)
     {
-        if(m_CurrentStatus != Status::Disconnected)
+        if(m_CurrentStatus != PacketClientStatus::Disconnected)
             throw std::runtime_error("Already connected");
 
         // Clear info
@@ -41,7 +44,7 @@ namespace AWEngine::Packet
 
             m_Closing = false;
 
-            m_CurrentStatus = Status::Connecting;
+            m_CurrentStatus = PacketClientStatus::Connecting;
         }
 
 
@@ -57,15 +60,15 @@ namespace AWEngine::Packet
                 {
                     if (!ec)
                     {
-                        m_CurrentStatus = Status::Connected;
+                        m_CurrentStatus = PacketClientStatus::Connected;
 
-                        ReadHeader();
+                        //ReadHeader();
                     }
                     else // Failed
                     {
-                        m_CurrentStatus = Status::Disconnected;
+                        m_CurrentStatus = PacketClientStatus::Disconnected;
                         m_LastDisconnectInfo = {
-                            DisconnectReason::ConnectionError,
+                            PacketClientDisconnectReason::ConnectionError,
                             false,
                             "Failed to connect to the server"
                         };
@@ -224,24 +227,25 @@ namespace AWEngine::Packet
                                       */
     }
 
-    void PacketClient::Disconnect()
+    template<typename TPacketEnum>
+    void PacketClient<TPacketEnum>::Disconnect()
     {
         switch(CurrentStatus())
         {
             default: throw std::runtime_error("Unknown current status");
-            case Status::Disconnected: return; // Already disconnected
+            case PacketClientStatus::Disconnected: return; // Already disconnected
             {
                 throw std::runtime_error("Not Implemented");
             }
-            case Status::Connected:
+            case PacketClientStatus::Connected:
             {
                 m_SendQueue.clear();
                 // Tell server that the disconnect was "by decision" and not an error
-                Send(::AWEngine::Packet::ToServer::Disconnect());
+                Send(::AWEngine::Packet::ToServer::Disconnect<TPacketEnum>());
 
                 //TODO Wait idle?
             }
-            case Status::Connecting:
+            case PacketClientStatus::Connecting:
             {
                 m_IoContext.stop();
 

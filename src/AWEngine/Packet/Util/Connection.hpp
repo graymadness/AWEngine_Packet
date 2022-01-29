@@ -15,7 +15,8 @@ namespace AWEngine::Packet::Util
         PacketBuffer Body;
     };
 
-    class Connection : public std::enable_shared_from_this<Connection>
+    template<typename TPacketEnum>
+    class Connection : public std::enable_shared_from_this<Connection<TPacketEnum>>
     {
     public:
         // Constructor: Specify Owner, connect to context, transfer the socket
@@ -78,7 +79,7 @@ namespace AWEngine::Packet::Util
         }
 
     public:
-        template<Packet::PacketConcept_ToServer TP>
+        template<Packet::PacketConcept_ToServer<TPacketEnum> TP>
         inline void Send(const TP& packet)
         {
             PacketSendInfo info = {};
@@ -104,7 +105,7 @@ namespace AWEngine::Packet::Util
                 }
             );
         }
-        template<Packet::PacketConcept_ToServer TP>
+        template<Packet::PacketConcept_ToServer<TPacketEnum> TP>
         inline void Send(const std::unique_ptr<TP>& packet) { Send(*packet); }
 
     private:

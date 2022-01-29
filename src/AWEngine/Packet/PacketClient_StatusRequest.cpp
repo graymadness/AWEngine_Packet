@@ -5,12 +5,12 @@
 
 namespace AWEngine::Packet
 {
-
-    void PacketClient::GetServerStatusAsync(
+    template<typename TPacketEnum>
+    void PacketClient<TPacketEnum>::GetServerStatusAsync(
         const std::string& host,
         uint16_t port,
-        std::function<::AWEngine::Packet::ToClient::Login::ServerInfo> infoCallback,
-        std::function<void> errorcallback
+        std::function<void(::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketEnum>)> infoCallback,
+        std::function<void()> errorcallback
     )
     {
 

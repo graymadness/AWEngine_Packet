@@ -22,53 +22,8 @@ namespace AWEngine::Packet
     const GameName_t ProtocolInfo::GameName = ProtocolInfo::StringToArrayName<GameName_Length>(AWE_PACKET_GAME_NAME); // NOLINT(cert-err58-cpp)
 #endif
 
-    inline static PacketParserList_t InitParsersToClient();
-    inline static PacketParserList_t InitParsersToServer();
-
-    PacketParserList_t ProtocolInfo::ParsersToClient = InitParsersToClient(); // NOLINT(cert-err58-cpp)
-    PacketParserList_t ProtocolInfo::ParsersToServer = InitParsersToServer(); // NOLINT(cert-err58-cpp)
-
-#ifdef AWE_PACKET_REGISTER_INLINE
-#   error "AWE_PACKET_REGISTER_INLINE already exist"
-#endif
-#define AWE_PACKET_REGISTER_INLINE(list, packetType) \
-    list[packetType::s_PacketID()] = AWE_PACKET_PARSER(packetType)
-
-    PacketParserList_t InitParsersToClient()
-    {
-        PacketParserList_t list{};
-        {
-            // 0
-            AWE_PACKET_REGISTER_INLINE(list, ::AWEngine::Packet::ToClient::Login::ServerInfo); // 0x00
-
-            // F
-            AWE_PACKET_REGISTER_INLINE(list, ::AWEngine::Packet::ToClient::Ping); // 0xFE
-            AWE_PACKET_REGISTER_INLINE(list, ::AWEngine::Packet::ToClient::Kick); // 0xFF
-        }
-        return list;
-    }
-
-    PacketParserList_t InitParsersToServer()
-    {
-        PacketParserList_t list{};
-        {
-            // 0
-            AWE_PACKET_REGISTER_INLINE(list, ::AWEngine::Packet::ToServer::Login::Init); // 0x00
-
-            // F
-            AWE_PACKET_REGISTER_INLINE(list, ::AWEngine::Packet::ToServer::Pong); // 0xFE
-            AWE_PACKET_REGISTER_INLINE(list, ::AWEngine::Packet::ToServer::Disconnect); // 0xFF
-        }
-        return list;
-    }
-
-#ifndef AWE_PACKET_REGISTER_INLINE
-#   error "AWE_PACKET_REGISTER_INLINE define does not exist"
-#endif
-#undef AWE_PACKET_REGISTER_INLINE
-
     template<std::size_t N>
-    std::array<char, N> ProtocolInfo::StringToArrayName(const std::string& strName)
+    std::array<char, N> StringToArrayName(const std::string& strName)
     {
         static_assert(N > 0);
         if(strName.length() > N)

@@ -10,7 +10,8 @@ namespace AWEngine::Packet::ToClient
     /// Server expects Pong response with same `Payload` otherwise should terminates the connection.
     /// The payload is usually current UNIX time but it is not required.
     /// `PacketClient` responds to this packet automatically.
-    AWE_PACKET(Ping, ToClient, 0xFE)
+    template<typename TPacketEnum>
+    AWE_PACKET(Ping, TPacketEnum)
     {
     public:
         explicit Ping(uint64_t payload)

@@ -14,23 +14,11 @@
 
 namespace AWEngine::Packet::ToClient::Login
 {
-    /// Status response to `Init` packet.
-    /// May be sent during gameplay (on server decision) to update those info.
-    /// Format of the JSON is game-specific but those are the generic ones:
-    /// {
-    ///   "name": "Example Server",
-    ///   "website": "http://example.com",
-    ///   "motd": "Open to everyone!\nCome and join",
-    ///   "players": {
-    ///     "online": 6,
-    ///     "max": 13
-    ///   },
-    ///   "locale": "en"
-    /// }
-    /// Try not to provide user-specific information (like usernames) as it would allow tracking of players.
-    /// It is recommended to generate the JSON once (and store it as string) and re-use it for every packet.
-    AWE_PACKET(ServerInfo, ToClient, 0x00)
+    struct ServerInfo_Utils
     {
+    public:
+        ServerInfo_Utils() = delete;
+
     public:
         /// Message of the day.
         /// Type: text
@@ -54,7 +42,45 @@ namespace AWEngine::Packet::ToClient::Login
         /// Does server limit players that can join?
         /// Type: boolean (text: yes / no, default: no)
         static const std::string Field_Whitelist;
+    };
 
+    template<typename T>
+    T SimpleJsonParse(const std::string& json, const std::string& key) noexcept = delete;
+
+    /// Looks for this pattern inside JSON: "key": "value"
+    /// Supports
+    /// Returns empty string on invalid JSON or when not found
+    template<>
+    std::string SimpleJsonParse<std::string>(const std::string& json, const std::string& key) noexcept;
+    /// Returns 0 on error or empty value
+    template<>
+    int SimpleJsonParse<int>(const std::string& json, const std::string& key) noexcept;
+    /// Returns bool based on first character of value (will return `true` for "yogurt").
+    /// No value is returned on error or unknown character.
+    template<>
+    std::optional<bool> SimpleJsonParse<std::optional<bool>>(const std::string& json, const std::string& key) noexcept;
+    /// Returns 0 on error or empty value
+    template<>
+    std::optional<int> SimpleJsonParse<std::optional<int>>(const std::string& json, const std::string& key) noexcept;
+
+    /// Status response to `Init` packet.
+    /// May be sent during gameplay (on server decision) to update those info.
+    /// Format of the JSON is game-specific but those are the generic ones:
+    /// {
+    ///   "name": "Example Server",
+    ///   "website": "http://example.com",
+    ///   "motd": "Open to everyone!\nCome and join",
+    ///   "players": {
+    ///     "online": 6,
+    ///     "max": 13
+    ///   },
+    ///   "locale": "en"
+    /// }
+    /// Try not to provide user-specific information (like usernames) as it would allow tracking of players.
+    /// It is recommended to generate the JSON once (and store it as string) and re-use it for every packet.
+    template<typename TPacketEnum>
+    AWE_PACKET(ServerInfo, TPacketEnum)
+    {
     public:
         explicit ServerInfo(
                 std::array<char, 8> gameName,
@@ -67,7 +93,6 @@ namespace AWEngine::Packet::ToClient::Login
         {
         }
 
-        explicit ServerInfo(const std::string& jsonString) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, jsonString) {}
 #ifdef AWE_PACKET_LIB_JSON
         explicit ServerInfo(
                 std::array<char, 8>   gameName,
@@ -93,13 +118,13 @@ namespace AWEngine::Packet::ToClient::Login
 #endif
 
     public:
-        [[nodiscard]] std::string         MOTD()          const noexcept;
-        [[nodiscard]] std::string         ServerName()    const noexcept;
-        [[nodiscard]] std::string         Website()       const noexcept;
-        [[nodiscard]] Util::LocaleInfo    ServerLocale()  const noexcept;
-        [[nodiscard]] std::optional<int>  OnlinePlayers() const noexcept;
-        [[nodiscard]] int                 MaxPlayers()    const noexcept;
-        [[nodiscard]] std::optional<bool> Whitelist()     const noexcept;
+        [[nodiscard]] inline std::string         MOTD()          const noexcept { return SimpleJsonParse<std::string>(        JsonString, ServerInfo_Utils::Field_MOTD         ); }
+        [[nodiscard]] inline std::string         ServerName()    const noexcept { return SimpleJsonParse<std::string>(        JsonString, ServerInfo_Utils::Field_ServerName   ); }
+        [[nodiscard]] inline std::string         Website()       const noexcept { return SimpleJsonParse<std::string>(        JsonString, ServerInfo_Utils::Field_Website      ); }
+        [[nodiscard]] inline Util::LocaleInfo    ServerLocale()  const noexcept { return SimpleJsonParse<std::string>(        JsonString, ServerInfo_Utils::Field_ServerLocale ); }
+        [[nodiscard]] inline std::optional<int>  OnlinePlayers() const noexcept { return SimpleJsonParse<int>(                JsonString, ServerInfo_Utils::Field_OnlinePlayers); }
+        [[nodiscard]] inline int                 MaxPlayers()    const noexcept { return SimpleJsonParse<int>(                JsonString, ServerInfo_Utils::Field_MaxPlayers   ); }
+        [[nodiscard]] inline std::optional<bool> Whitelist()     const noexcept { return SimpleJsonParse<std::optional<bool>>(JsonString, ServerInfo_Utils::Field_Whitelist    ); }
 
     public:
         void Write(PacketBuffer &out) const override

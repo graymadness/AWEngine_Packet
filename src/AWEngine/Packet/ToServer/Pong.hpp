@@ -7,7 +7,8 @@ namespace AWEngine::Packet::ToServer
     /// Response to `Ping` packet from the server.
     /// Do not try to guess the `Payload`.
     /// Sending multiple `Pong` packets after receiving `Ping` packet may result in termination of the connection by the server.
-    AWE_PACKET(Pong, ToServer, 0xFE)
+    template<typename TPacketEnum>
+    AWE_PACKET(Pong, TPacketEnum)
     {
     public:
         explicit Pong(uint64_t payload)

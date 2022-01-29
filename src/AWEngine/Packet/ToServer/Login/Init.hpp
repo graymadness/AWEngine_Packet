@@ -17,10 +17,11 @@ namespace AWEngine::Packet::ToServer::Login
     /// - `Kick` - no access to the info or no space for the client to join the server (maximum players online)
     /// - game-specific init packet - what server needs to tell you (auth info?)
     /// - (future idea) wait-in-line packet - keep-alive packet telling the client its position in queue
-    AWE_PACKET(Init, ToServer, 0x00)
+    template<typename TPacketEnum>
+    AWE_PACKET(Init, TPacketEnum)
     {
     public:
-        AWE_ENUM(NextStep, uint8_t)
+        enum class NextStep : uint8_t
         {
             ServerInfo = 0,
             Join       = 1
@@ -40,25 +41,15 @@ namespace AWEngine::Packet::ToServer::Login
 
     public:
         explicit Init(
-                std::array<char, 8> gameName,
-                uint32_t            protocolVersion,
-                Util::LocaleInfo    clientLocale,
-                NextStep            next
+            std::array<char, 8> gameName,
+            uint32_t            protocolVersion,
+            Util::LocaleInfo    clientLocale,
+            NextStep            next
         )
-                :  GameName(gameName),
-                   ProtocolVersion(protocolVersion),
-                   ClientLocale(clientLocale),
-                   Next(next)
-        {
-        }
-        explicit Init(
-                NextStep         next,
-                Util::LocaleInfo clientLocale
-                )
-                :  GameName(ProtocolInfo::GameName),
-                   ProtocolVersion(ProtocolInfo::ProtocolVersion),
-                   ClientLocale(clientLocale),
-                   Next(next)
+            :  GameName(gameName),
+               ProtocolVersion(protocolVersion),
+               ClientLocale(clientLocale),
+               Next(next)
         {
         }
 
@@ -74,16 +65,9 @@ namespace AWEngine::Packet::ToServer::Login
         NextStep                           Next;
 
     public:
-        inline void Write(PacketBuffer& out) const override;
+        inline void Write(PacketBuffer& out) const override
+        {
+            out << GameName << ProtocolVersion << ClientLocale << static_cast<uint8_t>(Next);
+        }
     };
-
-    inline static PacketBuffer& operator<<(PacketBuffer& out, Init::NextStep value)
-    {
-        return out << static_cast<uint8_t>(value);
-    }
-
-    void Init::Write(PacketBuffer& out) const
-    {
-        out << GameName << ProtocolVersion << ClientLocale << Next;
-    }
 }

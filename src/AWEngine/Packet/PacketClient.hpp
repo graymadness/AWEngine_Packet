@@ -13,30 +13,33 @@
 
 namespace AWEngine::Packet
 {
+    enum class PacketClientStatus : uint8_t
+    {
+        Disconnected = 0,
+        Connecting,
+        Connected
+    };
+
+    enum class PacketClientDisconnectReason : uint8_t
+    {
+        Unknown = 0,
+        ClientRequest = 1,
+        Kicked = 2,
+        ConnectionError = 3
+    };
+
+    struct PacketClientDisconnectInfo
+    {
+        PacketClientDisconnectReason Reason = PacketClientDisconnectReason::Unknown;
+        bool TranslateMessage = false;
+        std::string Message = {};
+    };
+
+    template<typename TPacketEnum>
     class PacketClient
     {
     public:
-        enum class Status : uint8_t
-        {
-            Disconnected = 0,
-            Connecting,
-            Connected
-        };
-
-        enum class DisconnectReason : uint8_t
-        {
-            Unknown = 0,
-            ClientRequest = 1,
-            Kicked = 2,
-            ConnectionError = 3
-        };
-
-        struct DisconnectInfo
-        {
-            DisconnectReason Reason = DisconnectReason::Unknown;
-            bool TranslateMessage = false;
-            std::string Message = {};
-        };
+        static const uint16_t DefaultPort = 10101;
 
     public:
         explicit PacketClient(
@@ -53,15 +56,15 @@ namespace AWEngine::Packet
         PacketClient& operator=(PacketClient&&) = delete;
 
     private:
-        DisconnectInfo m_LastDisconnectInfo = {};
-        Status         m_CurrentStatus = Status::Disconnected;
+        PacketClientDisconnectInfo m_LastDisconnectInfo = {};
+        PacketClientStatus         m_CurrentStatus = PacketClientStatus::Disconnected;
     public:
-        [[nodiscard]] inline bool           IsConnected()        const noexcept { return m_Socket.is_open(); }
-        [[nodiscard]] inline Status         CurrentStatus()      const noexcept { return m_CurrentStatus; }
-        [[nodiscard]] inline DisconnectInfo LastDisconnectInfo() const noexcept { return m_LastDisconnectInfo; }
+        [[nodiscard]] inline bool                       IsConnected()        const noexcept { return m_Socket.is_open(); }
+        [[nodiscard]] inline PacketClientStatus         CurrentStatus()      const noexcept { return m_CurrentStatus; }
+        [[nodiscard]] inline PacketClientDisconnectInfo LastDisconnectInfo() const noexcept { return m_LastDisconnectInfo; }
 
     public:
-        void Connect(const std::string& host, uint16_t port = ::AWEngine::Packet::ProtocolInfo::DefaultPort);
+        void Connect(const std::string& host, uint16_t port = DefaultPort);
         void Disconnect();
 
     private:
@@ -73,7 +76,7 @@ namespace AWEngine::Packet
         /// Queue of packets for the client to read from different threads.
         /// Try to pick items from the queue every tick otherwise it may overflow `MaxReceivedQueueSize` and terminate the connection.
         /// Cleared on `Connect`.
-        ::AWEngine::Packet::Util::ThreadSafeQueue<Packet::IPacket_uptr> ReceiveQueue;
+        ::AWEngine::Packet::Util::ThreadSafeQueue<std::unique_ptr<Packet::IPacket<TPacketEnum>>> ReceiveQueue;
         static const std::size_t MaxReceiveQueueSize_Default = 128;
         /// Maximum items in `ReceivedQueue` until it throw an error and terminates the connection.
         const std::size_t MaxReceiveQueueSize;
@@ -88,12 +91,12 @@ namespace AWEngine::Packet
         void SendAsync_Header();
         void SendAsync_Body(PacketBuffer);
     public:
-        template<Packet::PacketConcept_ToServer TP>
+        template<Packet::PacketConcept_ToServer<TPacketEnum> TP>
         inline void Send(const TP& packet);
-        template<Packet::PacketConcept_ToServer TP>
+        template<Packet::PacketConcept_ToServer<TPacketEnum> TP>
         inline void Send(const std::unique_ptr<TP>& packet) { Send(*packet); }
     public:
-        inline void Send(const Packet::IPacket_uptr& packet);
+        inline void Send(const Packet::IPacket<TPacketEnum>& packet);
         //TODO SendAsync
 
     private:
@@ -111,17 +114,23 @@ namespace AWEngine::Packet
         /// Retrieve information from a server.
         /// May throw an exception.
         /// Takes some time = should be run outside of main thread.
-        [[nodiscard]] static ::AWEngine::Packet::ToClient::Login::ServerInfo GetServerStatus(const std::string& host, uint16_t port);
-        [[nodiscard]] static void GetServerStatusAsync(const std::string& host, uint16_t port, std::function<::AWEngine::Packet::ToClient::Login::ServerInfo> infoCallback, std::function<void> errorcallback);
+        [[nodiscard]] static ::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketEnum> GetServerStatus(const std::string& host, uint16_t port);
+        static void GetServerStatusAsync(
+            const std::string& host,
+            uint16_t port,
+            std::function<void(::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketEnum>)> infoCallback,
+            std::function<void()> errorcallback
+        );
     };
 
-    inline std::ostream& operator<<(std::ostream& out, PacketClient::DisconnectReason dr);
+    inline std::ostream& operator<<(std::ostream& out, PacketClientDisconnectReason dr);
 }
 
 namespace AWEngine::Packet
 {
     // ASYNC - Prime context to write a message header
-    void PacketClient::SendAsync_Header()
+    template<typename TPacketEnum>
+    void PacketClient<TPacketEnum>::SendAsync_Header()
     {
         auto info = m_SendQueue.pop_front();
 
@@ -162,9 +171,9 @@ namespace AWEngine::Packet
                     // to the closed socket, it will be tidied up.
                     m_Socket.close();
 
-                    m_CurrentStatus = Status::Disconnected;
+                    m_CurrentStatus = PacketClientStatus::Disconnected;
                     m_LastDisconnectInfo = {
-                        DisconnectReason::ConnectionError,
+                        PacketClientDisconnectReason::ConnectionError,
                         false,
                         "Write Header Fail"
                     };
@@ -174,7 +183,8 @@ namespace AWEngine::Packet
     }
 
     // ASYNC - Prime context to write a message body
-    void PacketClient::SendAsync_Body(PacketBuffer buffer)
+    template<typename TPacketEnum>
+    void PacketClient<TPacketEnum>::SendAsync_Body(PacketBuffer buffer)
     {
         //TODO Will `buffer` survive?
 
@@ -200,9 +210,9 @@ namespace AWEngine::Packet
                     // Sending failed, see SendAsync_Header() equivalent for description :P
                     m_Socket.close();
 
-                    m_CurrentStatus = Status::Disconnected;
+                    m_CurrentStatus = PacketClientStatus::Disconnected;
                     m_LastDisconnectInfo = {
-                        DisconnectReason::ConnectionError,
+                        PacketClientDisconnectReason::ConnectionError,
                         false,
                         "Write Header Fail - " + std::to_string(buffer.size()) + " bytes"
                     };
@@ -245,18 +255,18 @@ namespace AWEngine::Packet
     }
      */
 
-    std::ostream& operator<<(std::ostream& out, PacketClient::DisconnectReason dr)
+    std::ostream& operator<<(std::ostream& out, PacketClientDisconnectReason dr)
     {
         switch(dr)
         {
             default:
-            case PacketClient::DisconnectReason::Unknown:
+            case PacketClientDisconnectReason::Unknown:
                 return out << "unknown";
-            case PacketClient::DisconnectReason::ClientRequest:
+            case PacketClientDisconnectReason::ClientRequest:
                 return out << "client_request";
-            case PacketClient::DisconnectReason::Kicked:
+            case PacketClientDisconnectReason::Kicked:
                 return out << "kicked";
-            case PacketClient::DisconnectReason::ConnectionError:
+            case PacketClientDisconnectReason::ConnectionError:
                 return out << "connection_error";
         }
     }

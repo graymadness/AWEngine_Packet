@@ -2,7 +2,8 @@
 
 namespace AWEngine::Packet::Util
 {
-    void Connection::WriteHeader()
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::WriteHeader()
     {
         // If this function is called, we know the outgoing message queue must have at least one message to send.
         // So allocate a transmission buffer to hold the message, and issue the work - asio, send these bytes
@@ -44,7 +45,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    void Connection::WriteBody()
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::WriteBody()
     {
         // If this function is called, a header has just been sent, and that header indicated a body existed for this message.
         // Fill a transmission buffer with the body data, and send it!
@@ -74,7 +76,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    void Connection::ReadHeader()
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::ReadHeader()
     {
         // If this function is called, we are expecting asio to wait until it receives enough bytes to form a header of a message.
         // We know the headers are a fixed size, so allocate a transmission buffer large enough to store it.
@@ -108,7 +111,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    void Connection::ReadBody()
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::ReadBody()
     {
         m_WipInMessage.Body.resize(m_WipInMessage.Header.Size);
 
@@ -141,7 +145,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    void Connection::AddToIncomingMessageQueue()
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::AddToIncomingMessageQueue()
     {
         switch(m_WipInMessage.Header.ID)
         {
@@ -160,7 +165,8 @@ namespace AWEngine::Packet::Util
         }
     }
 
-    void Connection::ConnectToServer(const asio::ip::basic_resolver<asio::ip::tcp, asio::any_io_executor>::results_type& endpoints)
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::ConnectToServer(const asio::ip::basic_resolver<asio::ip::tcp, asio::any_io_executor>::results_type& endpoints)
     {
         if(m_Direction == PacketDirection::ToClient)
             throw std::runtime_error("Incorrect direction");
@@ -185,7 +191,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    void Connection::Disconnect()
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::Disconnect()
     {
         if (IsConnected())
             asio::post(m_asioContext, [this]() { m_socket.close(); });

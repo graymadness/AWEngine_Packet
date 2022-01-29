@@ -6,10 +6,11 @@ namespace AWEngine::Packet::ToClient
 {
     /// Packet sent to client before server terminates the connection.
     /// May contain no data if message is empty.
-    AWE_PACKET(Kick, ToClient, 0xFF)
+    template<typename TPacketEnum>
+    AWE_PACKET(Kick, TPacketEnum)
     {
     public:
-        AWE_ENUM(MessageType, uint8_t)
+        enum class MessageType : uint8_t
         {
             Raw = 0,
             Translatable = 1

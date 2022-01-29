@@ -5,7 +5,8 @@
 namespace AWEngine::Packet::ToServer
 {
     /// Packet sent to server before client terminates the connection to indicate that the disconnect was by decision of the user.
-    AWE_PACKET(Disconnect, ToServer, 0xFF)
+    template<typename TPacketEnum>
+    AWE_PACKET(Disconnect, TPacketEnum)
     {
     public:
         explicit Disconnect() = default;
