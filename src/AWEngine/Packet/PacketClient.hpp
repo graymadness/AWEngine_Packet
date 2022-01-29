@@ -78,6 +78,7 @@ namespace AWEngine::Packet
         asio::ip::tcp::endpoint                        m_EndPoint;
         std::thread                                    m_ThreadContext;
         std::unique_ptr<Util::Connection<TPacketEnum>> m_Connection;
+        asio::ip::tcp::resolver                        m_Resolver = asio::ip::tcp::resolver(m_IoContext);
     public:
         inline void Send(const Packet::IPacket<TPacketEnum>& packet)                        { m_Connection->Send(packet); }
         inline void Send(const std::unique_ptr<const Packet::IPacket<TPacketEnum>>& packet) { m_Connection->Send(packet); }
@@ -88,8 +89,8 @@ namespace AWEngine::Packet
         /// Cleared on `Connect`.
         Util::ThreadSafeQueue<OwnedMessage_t> ReceiveQueue;
     public:
-        [[nodiscard]] inline Util::ThreadSafeQueue<OwnedMessage_t>& Incoming()          noexcept { return ReceiveQueue; }
-        [[nodiscard]] inline bool                                   HasIncoming() const noexcept { return !ReceiveQueue.empty(); }
+        [[nodiscard]] inline Util::ThreadSafeQueue<OwnedMessage_t>& Incoming()    noexcept { return ReceiveQueue; }
+        [[nodiscard]] inline bool                                   HasIncoming() noexcept { return !ReceiveQueue.empty(); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, PacketClientDisconnectReason dr);
@@ -103,17 +104,25 @@ namespace AWEngine::Packet
     template<typename TPacketEnum>
     bool PacketClient<TPacketEnum>::Connect(const std::string& host, uint16_t port)
     {
+        AWE_DEBUG_COUT("Connect");
+
         if(m_CurrentStatus != PacketClientStatus::Disconnected)
             throw std::runtime_error("Already connected");
 
         try
         {
             // Resolve hostname/ip-address into tangiable physical address
-            asio::ip::tcp::resolver resolver(m_IoContext);
-            asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(host, std::to_string(port));
+            asio::ip::tcp::resolver::results_type endpoints = m_Resolver.resolve(host, std::to_string(port));
+            if(endpoints.empty())
+                throw std::runtime_error("No endpoints");
 
             // Create connection
-            m_Connection = std::make_unique<Util::Connection<TPacketEnum>>(PacketDirection::ToServer, m_IoContext, asio::ip::tcp::socket(m_IoContext), ReceiveQueue);
+            m_Connection = std::make_unique<Util::Connection<TPacketEnum>>(
+                PacketDirection::ToServer,
+                m_IoContext,
+                asio::ip::tcp::socket(m_IoContext),
+                ReceiveQueue
+            );
 
             // Tell the connection object to connect to server
             m_Connection->ConnectToServer(endpoints);
@@ -140,6 +149,8 @@ namespace AWEngine::Packet
     template<TPacketEnum disconnectPacketId>
     void PacketClient<TPacketEnum>::Disconnect()
     {
+        AWE_DEBUG_COUT("Disconnect");
+
         if(!IsConnected())
             return;
 
@@ -165,6 +176,8 @@ namespace AWEngine::Packet
     template<typename TPacketEnum>
     void PacketClient<TPacketEnum>::Disconnect()
     {
+        AWE_DEBUG_COUT("Disconnect2");
+
         if(!IsConnected())
             return;
 

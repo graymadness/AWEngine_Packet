@@ -36,13 +36,6 @@ namespace AWEngine::Packet::Util
         std::mutex m_MutexItemPushed = {};
 
     public:
-        [[nodiscard]] inline bool empty() const
-        {
-            std::scoped_lock lock(m_MutesQueue);
-            return m_Data.empty();
-        }
-
-    public:
         /// Read the first item without removing it from the queue
         [[nodiscard]] inline const T& peek_front()
         {
@@ -58,7 +51,7 @@ namespace AWEngine::Packet::Util
 
     public:
         /// Read the first item and remove it from the queue
-        T pop_front()
+        inline T pop_front()
         {
             std::scoped_lock lock(m_MutesQueue);
             auto t = std::move(m_Data.front());
@@ -66,7 +59,7 @@ namespace AWEngine::Packet::Util
             return std::move(t);
         }
         /// Read the last item and remove it from the queue
-        T pop_back()
+        inline T pop_back()
         {
             std::scoped_lock lock(m_MutesQueue);
             auto t = std::move(m_Data.back());
@@ -119,19 +112,19 @@ namespace AWEngine::Packet::Util
 
     public:
         /// Check whenever there are any items
-        bool empty()
+        [[nodiscard]] inline bool empty()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.empty();
         }
         /// Number of items in the queue
-        size_t size()
+        [[nodiscard]] inline size_t size()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.size();
         }
         /// Remove all items
-        void clear()
+        inline void clear()
         {
             std::scoped_lock lock(m_MutesQueue);
             m_Data.clear();
@@ -140,7 +133,7 @@ namespace AWEngine::Packet::Util
     public:
         /// Wait for call of push_*()
         /// Blocks current thread
-        void wait()
+        inline void wait()
         {
             while (empty())
             {

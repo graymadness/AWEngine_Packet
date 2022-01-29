@@ -21,21 +21,21 @@ namespace AWEngine::Packet::Util
 
         typedef std::shared_ptr<Connection<TPacketEnum>> Client_t;
         typedef PacketSendInfo                           PacketInfo_t;
-        typedef std::pair<Client_t, PacketInfo_t>            OwnedMessage_t;
+        typedef std::pair<Client_t, PacketInfo_t>        OwnedMessage_t;
 
     public:
-        // Constructor: Specify Owner, connect to context, transfer the socket
-        //				Provide reference to incoming message queue
+        /// Constructor: Specify Owner, connect to context, transfer the socket
+        ///              Provide reference to incoming message queue
         Connection(
-            PacketDirection direction,
-            asio::io_context& asioContext,
-            asio::ip::tcp::socket socket,
+            PacketDirection                  direction,
+            asio::io_context&                asioContext,
+            asio::ip::tcp::socket            socket,
             ThreadSafeQueue<OwnedMessage_t>& qIn
         )
             : m_Direction(direction),
-              m_asioContext(asioContext),
-              m_socket(std::move(socket)),
-              m_qMessagesIn(qIn)
+              m_IoContext(asioContext),
+              m_Socket(std::move(socket)),
+              m_MessagesIn(qIn)
         {
         }
 
@@ -54,39 +54,34 @@ namespace AWEngine::Packet::Util
         ConnectionStatus m_Status = ConnectionStatus::Disconnected; //TODO Add disconnect reason
 
         // Each connection has a unique socket to a remote
-        asio::ip::tcp::socket m_socket;
+        asio::ip::tcp::socket m_Socket;
 
         // This context is shared with the whole asio instance
-        asio::io_context& m_asioContext;
+        asio::io_context& m_IoContext;
 
         // This queue holds all messages to be sent to the remote side
         // of this connection
-        ThreadSafeQueue<PacketSendInfo> m_qMessagesOut;
+        ThreadSafeQueue<PacketSendInfo> m_MessagesOut;
 
         // This references the incoming queue of the parent object
-        ThreadSafeQueue<OwnedMessage_t>& m_qMessagesIn;
+        ThreadSafeQueue<OwnedMessage_t>& m_MessagesIn;
     public:
         [[nodiscard]] inline PacketDirection  Direction()   const noexcept { return m_Direction; }
         [[nodiscard]] inline ConnectionStatus Status()      const noexcept { return m_Status; }
-        [[nodiscard]] inline bool             IsConnected() const noexcept { return m_socket.is_open(); }
+        [[nodiscard]] inline bool             IsConnected() const noexcept { return m_Socket.is_open(); }
 
     public:
         void ConnectToClient();
         void ConnectToServer(const asio::ip::tcp::resolver::results_type& endpoints);
 
-
         void Disconnect();
-
-
-        // Prime the connection to wait for incoming messages
-        void StartListening()
-        {
-            //TODO
-        }
 
     public:
         inline void Send(const Packet::IPacket<TPacketEnum>& packet)
         {
+            if(!IsConnected())
+                throw std::runtime_error("Not Connected - Send(packet)");
+
             PacketSendInfo info = {};
             info.Header.ID = packet.ID;
 
@@ -96,14 +91,14 @@ namespace AWEngine::Packet::Util
             //TODO Compression
 
             asio::post(
-                m_asioContext,
-                [this, &info]()
+                m_IoContext,
+                [this, info]()
                 {
                     // If the queue has a message in it, then we must assume that it is in the process of asynchronously being written.
                     // Either way add the message to the queue to be output.
                     // If no messages were available to be written, then start the process of writing the message at the front of the queue.
-                    bool bWritingMessage = !m_qMessagesOut.empty();
-                    m_qMessagesOut.push_back(info);
+                    bool bWritingMessage = !m_MessagesOut.empty();
+                    m_MessagesOut.push_back(info);
                     if (!bWritingMessage)
                     {
                         WriteHeader();
@@ -141,19 +136,24 @@ namespace AWEngine::Packet::Util
     template<typename TPacketEnum>
     void Connection<TPacketEnum>::WriteHeader()
     {
+        if(!IsConnected())
+            throw std::runtime_error("Not Connected - WriteHeader()");
+
         // If this function is called, we know the outgoing message queue must have at least one message to send.
         // So allocate a transmission buffer to hold the message, and issue the work - asio, send these bytes
         asio::async_write(
-            m_socket,
-            asio::buffer(&m_qMessagesOut.peek_front().Header, sizeof(PacketSendInfo::Header)),
+            m_Socket,
+            asio::buffer(&m_MessagesOut.peek_front().Header, sizeof(PacketSendInfo::Header)),
             [this](std::error_code ec, std::size_t length)
             {
+                AWE_DEBUG_COUT("Write Header Callback");
                 // asio has now sent the bytes - if there was a problem an error would be available...
                 if(!ec)
                 {
                     // ... no error, so check if the message header just sent also has a message body...
-                    if(!m_qMessagesOut.peek_front().Body.empty())
+                    if(!m_MessagesOut.peek_front().Body.empty())
                     {
+                        AWE_DEBUG_COUT("Writing body...");
                         // ...it does, so issue the task to write the body bytes
                         WriteBody();
                     }
@@ -161,12 +161,17 @@ namespace AWEngine::Packet::Util
                     {
                         // ...it didnt, so we are done with this message.
                         // Remove it from the outgoing message queue
-                        m_qMessagesOut.pop_front();
+                        m_MessagesOut.pop_front();
 
                         // If the queue is not empty, there are more messages to send, so make this happen by issuing the task to send the next header.
-                        if(!m_qMessagesOut.empty())
+                        if(!m_MessagesOut.empty())
                         {
+                            AWE_DEBUG_COUT("Sending next message... (from header)");
                             WriteHeader();
+                        }
+                        else
+                        {
+                            AWE_DEBUG_COUT("No more messages waiting (from header)");
                         }
                     }
                 }
@@ -174,8 +179,8 @@ namespace AWEngine::Packet::Util
                 {
                     // ...asio failed to write the message, we could analyse why but for now simply assume the connection has died by closing the socket.
                     // When a future attempt to write to this client fails due to the closed socket, it will be tidied up.
-                    std::cerr << "Write Header Fail." << std::endl;
-                    m_socket.close();
+                    std::cerr << "Write Header Fail: " << ec.value() << " - " << ec.message() << std::endl;
+                    m_Socket.close();
                 }
             }
         );
@@ -187,26 +192,32 @@ namespace AWEngine::Packet::Util
         // If this function is called, a header has just been sent, and that header indicated a body existed for this message.
         // Fill a transmission buffer with the body data, and send it!
         asio::async_write(
-            m_socket,
-            asio::buffer(m_qMessagesOut.peek_front().Body.data(), m_qMessagesOut.peek_front().Body.size()),
+            m_Socket,
+            asio::buffer(m_MessagesOut.peek_front().Body.data(), m_MessagesOut.peek_front().Body.size()),
             [this](std::error_code ec, std::size_t length)
             {
+                AWE_DEBUG_COUT("Write Body Callback");
                 if(!ec)
                 {
                     // Sending was successful, so we are done with the message and remove it from the queue
-                    m_qMessagesOut.pop_front();
+                    m_MessagesOut.pop_front();
 
                     // If the queue still has messages in it, then issue the task to send the next messages' header.
-                    if(!m_qMessagesOut.empty())
+                    if(!m_MessagesOut.empty())
                     {
+                        AWE_DEBUG_COUT("Sending next message... (from body)");
                         WriteHeader();
+                    }
+                    else
+                    {
+                        AWE_DEBUG_COUT("No more messages waiting (from body)");
                     }
                 }
                 else
                 {
                     // Sending failed, see WriteHeader() equivalent for description :P
-                    std::cerr << "Write Body Fail." << std::endl;
-                    m_socket.close();
+                    std::cerr << "Write Body Fail: " << ec.value() << " - " << ec.message() << std::endl;
+                    m_Socket.close();
                 }
             }
         );
@@ -219,7 +230,7 @@ namespace AWEngine::Packet::Util
         // We know the headers are a fixed size, so allocate a transmission buffer large enough to store it.
         // In fact, we will construct the message in a "temporary" message object as it's convenient to work with.
         asio::async_read(
-            m_socket,
+            m_Socket,
             asio::buffer(&m_WipInMessage.Header, sizeof(PacketSendInfo::Header)),
             [this](std::error_code ec, std::size_t length)
             {
@@ -240,8 +251,8 @@ namespace AWEngine::Packet::Util
                 {
                     // Reading from the client went wrong, most likely a disconnect has occurred.
                     // Close the socket and let the system tidy it up later.
-                    std::cerr << "Read Header Fail." << std::endl;
-                    m_socket.close();
+                    std::cerr << "Read Header Fail: " << ec.value() << " - " << ec.message() << std::endl;
+                    m_Socket.close();
                 }
             }
         );
@@ -255,7 +266,7 @@ namespace AWEngine::Packet::Util
         // If this function is called, a header has already been read, and that header request we read a body.
         // The space for that body has already been allocated in the temporary message object, so just wait for the bytes to arrive...
         asio::async_read(
-            m_socket,
+            m_Socket,
             asio::buffer(m_WipInMessage.Body.data(), m_WipInMessage.Body.size()),
             [this](std::error_code ec, std::size_t length)
             {
@@ -264,7 +275,7 @@ namespace AWEngine::Packet::Util
                     if(m_WipInMessage.Header.Flags & PacketFlags::Compressed)
                     {
                         std::cerr << "Compression not implemented." << std::endl;
-                        m_socket.close();
+                        m_Socket.close();
                     }
                     else
                     {
@@ -274,8 +285,8 @@ namespace AWEngine::Packet::Util
                 }
                 else
                 {
-                    std::cerr << "Read Body Fail." << std::endl;
-                    m_socket.close();
+                    std::cerr << "Read Body Fail: " << ec.value() << " - " << ec.message() << std::endl;
+                    m_Socket.close();
                 }
             }
         );
@@ -284,26 +295,15 @@ namespace AWEngine::Packet::Util
     template<typename TPacketEnum>
     void Connection<TPacketEnum>::AddToIncomingMessageQueue()
     {
-        switch(m_WipInMessage.Header.ID)
-        {
-            default:
-            {
-                OwnedMessage_t msg;
-                if(m_Direction == PacketDirection::ToServer)
-                    msg = OwnedMessage_t{ this->shared_from_this(), m_WipInMessage };
-                else
-                    msg = OwnedMessage_t{ nullptr, m_WipInMessage };
-                m_qMessagesIn.push_back(msg);
+        OwnedMessage_t msg = OwnedMessage_t{ nullptr, m_WipInMessage };
+        if(m_Direction == PacketDirection::ToClient) // Server's connection
+            msg.first = this->shared_from_this();
+        m_MessagesIn.push_back(msg);
 
-                // We must now prime the asio context to receive the next message.
-                // It wil just sit and wait for bytes to arrive, and the message construction process repeats itself.
-                // Clever huh?
-                ReadHeader();
-                break;
-            }
-
-
-        }
+        // We must now prime the asio context to receive the next message.
+        // It wil just sit and wait for bytes to arrive, and the message construction process repeats itself.
+        // Clever huh?
+        ReadHeader();
     }
 
     template<typename TPacketEnum>
@@ -312,7 +312,7 @@ namespace AWEngine::Packet::Util
         if (m_Direction == PacketDirection::ToServer)
             throw std::runtime_error("Incorrect direction - Cannot connect to client from connection pointed towards server");
 
-        if (m_socket.is_open())
+        if (m_Socket.is_open())
         {
             ReadHeader();
         }
@@ -326,12 +326,14 @@ namespace AWEngine::Packet::Util
 
         // Request asio attempts to connect to an endpoint
         asio::async_connect(
-            m_socket,
+            m_Socket,
             endpoints,
             [this](std::error_code ec, const asio::ip::tcp::endpoint& endpoint)
             {
                 if (!ec)
                 {
+                    std::cout << "Connected to server" << std::endl;
+
                     ReadHeader();
                 }
                 else
@@ -348,6 +350,6 @@ namespace AWEngine::Packet::Util
     void Connection<TPacketEnum>::Disconnect()
     {
         if (IsConnected())
-            asio::post(m_asioContext, [this]() { m_socket.close(); });
+            asio::post(m_IoContext, [this]() { m_Socket.close(); });
     }
 }

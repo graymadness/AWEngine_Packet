@@ -39,7 +39,7 @@ namespace AWEngine::Packet
         : m_Config(std::move(config)),
           m_Parser(std::move(packetParser)),
           m_Endpoint(asio::ip::tcp::endpoint(m_Config.IP, m_Config.Port)),
-          m_AsioAcceptor(m_AsioContext, m_Endpoint) //TODO Multiple IPs (at least IPv4 and IPv6 at the same time)
+          m_AsioAcceptor(m_IoContext, m_Endpoint) //TODO Multiple IPs (at least IPv4 and IPv6 at the same time)
         {
         }
 
@@ -61,7 +61,7 @@ namespace AWEngine::Packet
         std::deque<Client_t> m_Connections;
 
         // Order of declaration is important - it is also the order of initialisation
-        asio::io_context m_AsioContext;
+        asio::io_context m_IoContext;
         std::thread      m_ThreadContext;
 
         // These things need an asio context
@@ -83,7 +83,7 @@ namespace AWEngine::Packet
         /// Send message to all clients
         void MessageAllClients(const PacketInfo_t& packet, const Client_t& ignoredClient = nullptr);
         /// Force server to respond to incoming messages
-        void Update(size_t maximumMessages = -1, bool waitForMessage = false);
+        int Update(size_t maximumMessages = -1, bool waitForMessage = false);
     public:
         /// Called when a client connects, you can veto the connection by returning false
         std::function<bool(const Client_t&)> OnClientConnect;
@@ -103,7 +103,7 @@ namespace AWEngine::Packet
             WaitForClientConnection();
 
             // Launch the asio context in its own thread
-            m_ThreadContext = std::thread([this]() { m_AsioContext.run(); });
+            m_ThreadContext = std::thread([this]() { m_IoContext.run(); });
         }
         catch (std::exception& ex)
         {
@@ -121,7 +121,7 @@ namespace AWEngine::Packet
     void PacketServer<TPacketEnum>::Stop()
     {
         // Request the context to close
-        m_AsioContext.stop();
+        m_IoContext.stop();
 
         // Tidy up the context thread
         if (m_ThreadContext.joinable())
@@ -149,7 +149,7 @@ namespace AWEngine::Packet
                     // Create a new connection to handle this client
                     std::shared_ptr<Util::Connection<TPacketEnum>> newConnection = std::make_shared<Util::Connection<TPacketEnum>>(
                         PacketDirection::ToClient,
-                        m_AsioContext,
+                        m_IoContext,
                         std::move(socket),
                         m_MessageInQueue
                     );
@@ -158,11 +158,11 @@ namespace AWEngine::Packet
                     if (OnClientConnect && OnClientConnect(newConnection))
                     {
                         // Connection allowed, so add to container of new connections
-                        m_Connections.push_back(std::move(newConnection));
+                        m_Connections.push_back(newConnection);
 
                         // And very important! Issue a task to the connection's
                         // asio context to sit and wait for bytes to arrive!
-                        m_Connections.back()->ConnectToClient(); // m_IDCounter++
+                        newConnection->ConnectToClient(); // m_IDCounter++
 
                         AWE_DEBUG_COUT("Connection approved");
                     }
@@ -243,20 +243,25 @@ namespace AWEngine::Packet
     }
 
     template<typename TPacketEnum>
-    void PacketServer<TPacketEnum>::Update(size_t maximumMessages, bool waitForMessage)
+    int PacketServer<TPacketEnum>::Update(size_t maximumMessages, bool waitForMessage)
     {
         if (waitForMessage)
             m_MessageInQueue.wait();
 
+        if(maximumMessages == 0)
+            return 0;
+
         // Process as many messages as you can up to the value specified
-        for(size_t messageIndex = 0; messageIndex < maximumMessages && !m_MessageInQueue.empty(); messageIndex++)
+        size_t messageIndex;
+        for(messageIndex = 0; !m_MessageInQueue.empty() && (maximumMessages < 0 || messageIndex < maximumMessages); messageIndex++)
         {
             // Grab the front message
             auto msg = m_MessageInQueue.pop_front();
 
             // Pass to message handler
             if(OnMessage)
-                OnMessage(msg.remote, msg.msg);
+                OnMessage(msg.first, msg.second);
         }
+        return messageIndex;
     }
 }

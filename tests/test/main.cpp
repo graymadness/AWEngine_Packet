@@ -1,5 +1,3 @@
-#include <cassert>
-
 #include "AWEngine/Packet/PacketServer.hpp"
 #include "AWEngine/Packet/PacketClient.hpp"
 
@@ -60,7 +58,10 @@ int main(int argc, const char** argv)
     };
     server.OnMessage = [](const PacketServer<PacketID>::Client_t& client, PacketServer<PacketID>::PacketInfo_t& info) -> void
     {
-        std::cout << "Message received " << int(info.Header.ID) << std::endl;
+        std::cout << "Message received, Packet ID =" << int(info.Header.ID) << std::endl;
+
+        if(client != nullptr)
+            client->Send(MsgA());
     };
     server.Start();
 
@@ -70,6 +71,7 @@ int main(int argc, const char** argv)
 
     PacketClient<PacketID> client = PacketClient<PacketID>();
     client.Connect("localhost");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
 #pragma endregion
 
@@ -77,27 +79,14 @@ int main(int argc, const char** argv)
     client.Send(MsgB());
     client.Send(MsgA());
 
-    std::cout << "Waiting for 10 seconds..." << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-}
+    std::cout << "client.HasIncoming() = " << client.HasIncoming() << std::endl;
 
-/*
-PacketClient<PacketID> StartClient()
-{
-    PacketClient client = PacketClient();
-    client.ConnectCallback = []
-    {
-        std::cout << "Client: " << "Connect" << std::endl;
-    };
-    client.DisconnectCallback = [](const AWEngine::DisconnectInfo& disconnectInfo)
-    {
-        std::cout << "Client: " << "Disconnect, " << disconnectInfo.Reason << disconnectInfo.Message << std::endl;
-    };
-    client.PacketReceivedCallback = [](Packet::IPacket_uptr& packet) -> bool
-    {
-        std::cout << "Client: " << "Packet received" << std::endl;
-    };
-    client.EnableReceivedQueue = false; // Do not use receive queue as it is not cleared
-    client.Connect("127.0.0.1");
+    std::cout << "Waiting for 2 seconds..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::cout << "2 seconds passed" << std::endl;
+
+    int processedMessages = server.Update(-1, false);
+    std::cout << "Processed " << processedMessages << " messages" << std::endl;
+
+    std::cout << "client.HasIncoming() = " << client.HasIncoming() << std::endl;
 }
-*/
