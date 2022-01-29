@@ -3,34 +3,87 @@
 #include "AWEngine/Packet/PacketServer.hpp"
 #include "AWEngine/Packet/PacketClient.hpp"
 
-void StartServer();
-void StartClient();
+enum class PacketID : uint8_t
+{
+    MsgA = 0u,
+    MsgB = 1u
+};
+
+using namespace AWEngine;
+using namespace AWEngine::Packet;
+
+struct MsgA : public IPacket<PacketID>
+{
+    MsgA() : IPacket<PacketID>(PacketID::MsgA) {}
+
+    void Write(PacketBuffer& out) const override {}
+};
+
+struct MsgB : public IPacket<PacketID>
+{
+    MsgB() : IPacket<PacketID>(PacketID::MsgB) {}
+
+    void Write(PacketBuffer& out) const override {}
+};
 
 int main(int argc, const char** argv)
 {
-    std::thread t_server = std::thread(StartServer);
-    std::thread t_client = std::thread(StartClient);
+#pragma region Server
 
-    t_client.join();
-    t_server.join();
-}
-
-void StartServer()
-{
-    using namespace AWEngine;
-    using namespace AWEngine::Packet;
-
-    PacketServer::Configuration serverConfig;
+    PacketServerConfiguration serverConfig;
     serverConfig.DisplayName = "Code Test Server";
     serverConfig.MaxPlayers = 1;
-    PacketServer server(serverConfig);
+
+    PacketServer<PacketID> server(
+        serverConfig,
+        [](PacketServer<PacketID>::PacketInfo_t& info) -> PacketServer<PacketID>::Packet_ptr
+        {
+            switch(info.Header.ID)
+            {
+                case PacketID::MsgA:
+                    return std::make_unique<MsgA>();
+                case PacketID::MsgB:
+                    return std::make_unique<MsgB>();
+                default:
+                    throw std::runtime_error("Unknown packet");
+            }
+        }
+    );
+    server.OnClientConnect = [](const PacketServer<PacketID>::Client_t& client) -> bool
+    {
+        std::cout << "Client connected" << std::endl;
+        return true;
+    };
+    server.OnClientDisconnect = [](const PacketServer<PacketID>::Client_t& client) -> void
+    {
+        std::cout << "Client disconnected" << std::endl;
+    };
+    server.OnMessage = [](const PacketServer<PacketID>::Client_t& client, PacketServer<PacketID>::PacketInfo_t& info) -> void
+    {
+        std::cout << "Message received " << int(info.Header.ID) << std::endl;
+    };
+    server.Start();
+
+#pragma endregion
+
+#pragma region Client
+
+    PacketClient<PacketID> client = PacketClient<PacketID>();
+    client.Connect("localhost");
+
+#pragma endregion
+
+    client.Send(MsgA());
+    client.Send(MsgB());
+    client.Send(MsgA());
+
+    std::cout << "Waiting for 10 seconds..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(10));
 }
 
-void StartClient()
+/*
+PacketClient<PacketID> StartClient()
 {
-    using namespace AWEngine;
-    using namespace AWEngine::Packet;
-
     PacketClient client = PacketClient();
     client.ConnectCallback = []
     {
@@ -47,3 +100,4 @@ void StartClient()
     client.EnableReceivedQueue = false; // Do not use receive queue as it is not cleared
     client.Connect("127.0.0.1");
 }
+*/

@@ -17,8 +17,8 @@ namespace AWEngine::Packet::ToServer::Login
     /// - `Kick` - no access to the info or no space for the client to join the server (maximum players online)
     /// - game-specific init packet - what server needs to tell you (auth info?)
     /// - (future idea) wait-in-line packet - keep-alive packet telling the client its position in queue
-    template<typename TPacketEnum>
-    AWE_PACKET(Init, TPacketEnum)
+    template<typename TPacketEnum, TPacketEnum enumValue>
+    class Init : IPacket<TPacketEnum>
     {
     public:
         enum class NextStep : uint8_t
@@ -46,7 +46,8 @@ namespace AWEngine::Packet::ToServer::Login
             Util::LocaleInfo    clientLocale,
             NextStep            next
         )
-            :  GameName(gameName),
+            :  IPacket<TPacketEnum>(enumValue),
+            GameName(gameName),
                ProtocolVersion(protocolVersion),
                ClientLocale(clientLocale),
                Next(next)
@@ -54,6 +55,7 @@ namespace AWEngine::Packet::ToServer::Login
         }
 
         explicit Init(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
+            : IPacket<TPacketEnum>(enumValue, in)
         {
             in >> GameName >> ProtocolVersion >> ClientLocale >> reinterpret_cast<uint8_t&>(Next);
         }

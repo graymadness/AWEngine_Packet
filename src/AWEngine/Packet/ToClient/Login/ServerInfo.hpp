@@ -78,31 +78,33 @@ namespace AWEngine::Packet::ToClient::Login
     /// }
     /// Try not to provide user-specific information (like usernames) as it would allow tracking of players.
     /// It is recommended to generate the JSON once (and store it as string) and re-use it for every packet.
-    template<typename TPacketEnum>
-    AWE_PACKET(ServerInfo, TPacketEnum)
+    template<typename TPacketEnum, TPacketEnum enumValue>
+    class ServerInfo : IPacket<TPacketEnum>
     {
     public:
         explicit ServerInfo(
-                std::array<char, 8> gameName,
-                uint32_t            protocolVersion,
-                std::string         jsonString
+            std::array<char, 8> gameName,
+            uint32_t            protocolVersion,
+            std::string         jsonString
         )
-                :  GameName(gameName),
-                   ProtocolVersion(protocolVersion),
-                   JsonString(std::move(jsonString))
+            : IPacket<TPacketEnum>(enumValue),
+              GameName(gameName),
+              ProtocolVersion(protocolVersion),
+              JsonString(std::move(jsonString))
         {
         }
 
 #ifdef AWE_PACKET_LIB_JSON
         explicit ServerInfo(
-                std::array<char, 8>   gameName,
-                uint32_t              protocolVersion,
-                const nlohmann::json& json
+            std::array<char, 8>   gameName,
+            uint32_t              protocolVersion,
+            const nlohmann::json& json
         ) : ServerInfo(gameName, protocolVersion, json.dump()) {}
         explicit ServerInfo(const nlohmann::json& json) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, json) {}
 #endif
 
         explicit ServerInfo(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
+            : IPacket<TPacketEnum>(enumValue, in)
         {
             in >> GameName >> ProtocolVersion >> JsonString;
         }

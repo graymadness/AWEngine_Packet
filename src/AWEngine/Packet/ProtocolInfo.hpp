@@ -8,9 +8,6 @@ namespace AWEngine::Packet
     template<typename TPacketEnum>
     class IPacket;
 
-    typedef uint8_t PacketID_t;
-    static const std::size_t PacketID_Count = static_cast<std::size_t>(std::numeric_limits<PacketID_t>::max()) + 1;
-
     typedef uint32_t ProtocolVersion_t;
 
     typedef uint32_t ProtocolVersion_t;

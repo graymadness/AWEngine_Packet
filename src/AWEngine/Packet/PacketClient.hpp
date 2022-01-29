@@ -9,7 +9,8 @@
 #include "IPacket.hpp"
 #include "ProtocolInfo.hpp"
 #include "AWEngine/Packet/ToClient/Login/ServerInfo.hpp"
-#include <AWEngine/Packet/Util/ThreadSafeQueue.hpp>
+#include "AWEngine/Packet/Util/ThreadSafeQueue.hpp"
+#include "AWEngine/Packet/Util/Connection.hpp"
 
 namespace AWEngine::Packet
 {
@@ -36,238 +37,153 @@ namespace AWEngine::Packet
     };
 
     template<typename TPacketEnum>
-    class PacketClient
+    class PacketClient : public NoCopyOrMove
     {
+    public:
+        static_assert(std::is_enum<TPacketEnum>());
+        static_assert(sizeof(TPacketEnum) == 1);
+
+        typedef typename Util::Connection<TPacketEnum>::Client_t       Client_t;
+        typedef typename Util::Connection<TPacketEnum>::PacketInfo_t   PacketInfo_t;
+        typedef std::unique_ptr<IPacket<TPacketEnum>>                  Packet_ptr;
+        typedef typename Util::Connection<TPacketEnum>::OwnedMessage_t OwnedMessage_t;
+
+        typedef std::function<Packet_ptr(PacketInfo_t&)> PacketParser_t; //THINK Convert to class?
+
     public:
         static const uint16_t DefaultPort = 10101;
 
     public:
-        explicit PacketClient(
-            std::size_t maxReceiveQueueSize = MaxReceiveQueueSize_Default
-                );
-        ~PacketClient();
-
-    public:
-        // Copy
-        PacketClient(const PacketClient&) = delete;
-        PacketClient& operator=(const PacketClient&) = delete;
-        // Move
-        PacketClient(PacketClient&&) = delete;
-        PacketClient& operator=(PacketClient&&) = delete;
+        explicit PacketClient() = default;
+        ~PacketClient()
+        {
+            Disconnect();
+        }
 
     private:
         PacketClientDisconnectInfo m_LastDisconnectInfo = {};
-        PacketClientStatus         m_CurrentStatus = PacketClientStatus::Disconnected;
+        PacketClientStatus         m_CurrentStatus      = PacketClientStatus::Disconnected;
     public:
-        [[nodiscard]] inline bool                       IsConnected()        const noexcept { return m_Socket.is_open(); }
-        [[nodiscard]] inline PacketClientStatus         CurrentStatus()      const noexcept { return m_CurrentStatus; }
+        [[nodiscard]] inline bool                       IsConnected()        const noexcept { return m_Connection && m_Connection->IsConnected(); }
         [[nodiscard]] inline PacketClientDisconnectInfo LastDisconnectInfo() const noexcept { return m_LastDisconnectInfo; }
 
     public:
-        void Connect(const std::string& host, uint16_t port = DefaultPort);
+        bool Connect(const std::string& host, uint16_t port = DefaultPort);
+        template<TPacketEnum disconnectPacketId>
+        void Disconnect();
         void Disconnect();
 
     private:
-        asio::io_context        m_IoContext;
-        asio::ip::tcp::endpoint m_EndPoint;
-        asio::ip::tcp::socket   m_Socket;
-        std::thread             m_ThreadContext;
+        asio::io_context                               m_IoContext;
+        asio::ip::tcp::endpoint                        m_EndPoint;
+        std::thread                                    m_ThreadContext;
+        std::unique_ptr<Util::Connection<TPacketEnum>> m_Connection;
     public:
+        inline void Send(const Packet::IPacket<TPacketEnum>& packet)                        { m_Connection->Send(packet); }
+        inline void Send(const std::unique_ptr<const Packet::IPacket<TPacketEnum>>& packet) { m_Connection->Send(packet); }
+
+    private:
         /// Queue of packets for the client to read from different threads.
         /// Try to pick items from the queue every tick otherwise it may overflow `MaxReceivedQueueSize` and terminate the connection.
         /// Cleared on `Connect`.
-        ::AWEngine::Packet::Util::ThreadSafeQueue<std::unique_ptr<Packet::IPacket<TPacketEnum>>> ReceiveQueue;
-        static const std::size_t MaxReceiveQueueSize_Default = 128;
-        /// Maximum items in `ReceivedQueue` until it throw an error and terminates the connection.
-        const std::size_t MaxReceiveQueueSize;
-    private:
-        struct SendInfo
-        {
-            PacketHeader Header;
-            PacketBuffer Body;
-        };
-        ::AWEngine::Packet::Util::ThreadSafeQueue<SendInfo> m_SendQueue;
-    private:
-        void SendAsync_Header();
-        void SendAsync_Body(PacketBuffer);
+        Util::ThreadSafeQueue<OwnedMessage_t> ReceiveQueue;
     public:
-        template<Packet::PacketConcept_ToServer<TPacketEnum> TP>
-        inline void Send(const TP& packet);
-        template<Packet::PacketConcept_ToServer<TPacketEnum> TP>
-        inline void Send(const std::unique_ptr<TP>& packet) { Send(*packet); }
-    public:
-        inline void Send(const Packet::IPacket<TPacketEnum>& packet);
-        //TODO SendAsync
-
-    private:
-        bool m_Closing = false;
-
-    // Stats
-    private:
-        std::size_t m_SentPacketCount = 0;
-        std::size_t m_ReceivedPacketCount = 0;
-    public:
-        [[nodiscard]] inline std::size_t SentPacketCount()     const noexcept { return m_SentPacketCount; }
-        [[nodiscard]] inline std::size_t ReceivedPacketCount() const noexcept { return m_ReceivedPacketCount; }
-
-    public:
-        /// Retrieve information from a server.
-        /// May throw an exception.
-        /// Takes some time = should be run outside of main thread.
-        [[nodiscard]] static ::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketEnum> GetServerStatus(const std::string& host, uint16_t port);
-        static void GetServerStatusAsync(
-            const std::string& host,
-            uint16_t port,
-            std::function<void(::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketEnum>)> infoCallback,
-            std::function<void()> errorcallback
-        );
+        [[nodiscard]] inline Util::ThreadSafeQueue<OwnedMessage_t>& Incoming()          noexcept { return ReceiveQueue; }
+        [[nodiscard]] inline bool                                   HasIncoming() const noexcept { return !ReceiveQueue.empty(); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, PacketClientDisconnectReason dr);
 }
 
+#include "AWEngine/Packet/Util/DNS.hpp"
+#include "AWEngine/Packet/ToServer/Disconnect.hpp"
+
 namespace AWEngine::Packet
 {
-    // ASYNC - Prime context to write a message header
     template<typename TPacketEnum>
-    void PacketClient<TPacketEnum>::SendAsync_Header()
+    bool PacketClient<TPacketEnum>::Connect(const std::string& host, uint16_t port)
     {
-        auto info = m_SendQueue.pop_front();
+        if(m_CurrentStatus != PacketClientStatus::Disconnected)
+            throw std::runtime_error("Already connected");
 
-        // If this function is called, we know the outgoing message queue must have
-        // at least one message to send. So allocate a transmission buffer to hold
-        // the message, and issue the work - asio, send these bytes
-        asio::async_write(
-            m_Socket,
-            asio::buffer(&info.Header, sizeof(PacketHeader)),
-            [this, &info](std::error_code ec, std::size_t length)
-            {
-                // asio has now sent the bytes - if there was a problem
-                // an error would be available...
-                if(!ec)
-                {
-                    m_SentPacketCount++;
-
-                    if(!info.Body.empty())
-                    {
-                        // ...it does, so issue the task to write the body bytes
-                        SendAsync_Body(std::move(info.Body));
-                    }
-                    else
-                    {
-                        // If the queue is not empty, there are more messages to send, so
-                        // make this happen by issuing the task to send the next header.
-                        if(!m_SendQueue.empty())
-                        {
-                            SendAsync_Header();
-                        }
-                    }
-                }
-                else
-                {
-                    // ...asio failed to write the message, we could analyse why but
-                    // for now simply assume the connection has died by closing the
-                    // socket. When a future attempt to write to this client fails due
-                    // to the closed socket, it will be tidied up.
-                    m_Socket.close();
-
-                    m_CurrentStatus = PacketClientStatus::Disconnected;
-                    m_LastDisconnectInfo = {
-                        PacketClientDisconnectReason::ConnectionError,
-                        false,
-                        "Write Header Fail"
-                    };
-                }
-            }
-        );
-    }
-
-    // ASYNC - Prime context to write a message body
-    template<typename TPacketEnum>
-    void PacketClient<TPacketEnum>::SendAsync_Body(PacketBuffer buffer)
-    {
-        //TODO Will `buffer` survive?
-
-        // If this function is called, a header has just been sent, and that header
-        // indicated a body existed for this message. Fill a transmission buffer
-        // with the body data, and send it!
-        asio::async_write(
-            m_Socket,
-            asio::buffer(buffer.data(), buffer.size()),
-            [this, &buffer](std::error_code ec, std::size_t length)
-            {
-                if(!ec)
-                {
-                    // If the queue still has messages in it, then issue the task to
-                    // send the next messages' header.
-                    if(!m_SendQueue.empty())
-                    {
-                        SendAsync_Header();
-                    }
-                }
-                else
-                {
-                    // Sending failed, see SendAsync_Header() equivalent for description :P
-                    m_Socket.close();
-
-                    m_CurrentStatus = PacketClientStatus::Disconnected;
-                    m_LastDisconnectInfo = {
-                        PacketClientDisconnectReason::ConnectionError,
-                        false,
-                        "Write Header Fail - " + std::to_string(buffer.size()) + " bytes"
-                    };
-                }
-            }
-        );
-    }
-
-    /*
-    template<Packet::PacketConcept_ToServer TP>
-    void PacketClient::Send(const TP& packet)
-    {
-        SendInfo info = {
-            PacketHeader{
-                TP::s_PacketID(),
-                0,
-                {}
-            },
-            PacketWrapper::WritePacket(packet)
-        };
-        info.Header.Size = info.Body.size();
-
-        asio::post(
-            m_IoContext,
-            [this, info]()
-            {
-                // If the queue has a message in it, then we must
-                // assume that it is in the process of asynchronously being written.
-                // Either way add the message to the queue to be output. If no messages
-                // were available to be written, then start the process of writing the
-                // message at the front of the queue.
-                bool bWritingMessage = !m_SendQueue.empty();
-                m_SendQueue.push_back(info);
-                if(!bWritingMessage)
-                {
-                    SendAsync_Header();
-               }
-           }
-       );
-    }
-     */
-
-    std::ostream& operator<<(std::ostream& out, PacketClientDisconnectReason dr)
-    {
-        switch(dr)
+        try
         {
-            default:
-            case PacketClientDisconnectReason::Unknown:
-                return out << "unknown";
-            case PacketClientDisconnectReason::ClientRequest:
-                return out << "client_request";
-            case PacketClientDisconnectReason::Kicked:
-                return out << "kicked";
-            case PacketClientDisconnectReason::ConnectionError:
-                return out << "connection_error";
+            // Resolve hostname/ip-address into tangiable physical address
+            asio::ip::tcp::resolver resolver(m_IoContext);
+            asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(host, std::to_string(port));
+
+            // Create connection
+            m_Connection = std::make_unique<Util::Connection<TPacketEnum>>(PacketDirection::ToServer, m_IoContext, asio::ip::tcp::socket(m_IoContext), ReceiveQueue);
+
+            // Tell the connection object to connect to server
+            m_Connection->ConnectToServer(endpoints);
+
+            // Start Context Thread
+            m_ThreadContext = std::thread([this]() { m_IoContext.run(); });
         }
+        catch (std::exception& e)
+        {
+            std::cerr << "Client Exception: " << e.what() << std::endl;
+
+            m_LastDisconnectInfo = {
+                PacketClientDisconnectReason::ConnectionError,
+                false,
+                "Failed to connect"
+            };
+            return false;
+        }
+
+        return true;
+    }
+
+    template<typename TPacketEnum>
+    template<TPacketEnum disconnectPacketId>
+    void PacketClient<TPacketEnum>::Disconnect()
+    {
+        if(!IsConnected())
+            return;
+
+        // Tell server that the disconnect was "by decision" and not an error
+        Send(::AWEngine::Packet::ToServer::Disconnect<TPacketEnum, disconnectPacketId>());
+
+        // Either way, we're also done with the asio context...
+        m_IoContext.stop();
+        // ...and its thread
+        if (m_ThreadContext.joinable())
+            m_ThreadContext.join();
+
+        // Destroy the connection object
+        m_Connection.release();
+
+        m_LastDisconnectInfo = {
+            PacketClientDisconnectReason::ClientRequest,
+            false,
+            "Disconnect requested by user"
+        };
+    }
+
+    template<typename TPacketEnum>
+    void PacketClient<TPacketEnum>::Disconnect()
+    {
+        if(!IsConnected())
+            return;
+
+        // We do not know which ID is a disconnect packet...
+        //Send(::AWEngine::Packet::ToServer::Disconnect<TPacketEnum, disconnectPacketId>());
+
+        // Either way, we're also done with the asio context...
+        m_IoContext.stop();
+        // ...and its thread
+        if (m_ThreadContext.joinable())
+            m_ThreadContext.join();
+
+        // Destroy the connection object
+        m_Connection.release();
+
+        m_LastDisconnectInfo = {
+            PacketClientDisconnectReason::ClientRequest,
+            false,
+            "Disconnect requested by user without Disconnect packet"
+        };
     }
 }

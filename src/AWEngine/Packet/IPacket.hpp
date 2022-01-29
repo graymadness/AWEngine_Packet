@@ -9,12 +9,19 @@
 
 namespace AWEngine::Packet
 {
+    template<typename TPacketEnum>
     struct PacketHeader
     {
-        PacketID_t ID;
-        uint16_t Size;
+    public:
+        static_assert(sizeof(TPacketEnum) == 1);
+        static_assert(sizeof(PacketFlags) == 1);
+
+    public:
+        TPacketEnum ID;
         PacketFlags Flags;
+        uint16_t    Size;
     };
+    static_assert(sizeof(PacketHeader<uint8_t>) == 4);
 
     template<typename T, typename TPacketEnum>
     concept PacketConcept = std::is_base_of<IPacket<TPacketEnum>, T>::value;
@@ -27,10 +34,13 @@ namespace AWEngine::Packet
         static_assert(sizeof(TPacketEnum) == 1);
 
     public:
-        explicit IPacket() = default;
-        explicit IPacket(PacketBuffer& in) {}
+        explicit IPacket(TPacketEnum id) : ID(id) {}
+        explicit IPacket(TPacketEnum id, PacketBuffer& in) : ID(id) {}
 
         virtual ~IPacket() = default;
+
+    public:
+        const TPacketEnum ID;
 
     public:
         virtual void Write(PacketBuffer& out) const = 0;
@@ -41,11 +51,6 @@ namespace AWEngine::Packet
     template<typename T, typename TPacketEnum>
     concept PacketConcept_ToServer = std::is_base_of<IPacket<TPacketEnum>, T>::value && T::s_Direction() == ::AWEngine::Packet::PacketDirection::ToServer;
 }
-
-#ifndef AWE_PACKET
-#   define AWE_PACKET(a_packet_name, a_packet_enum)\
-    class a_packet_name : public ::AWEngine::Packet::IPacket<a_packet_enum>
-#endif
 
 #ifndef AWE_PACKET_PARSER
 #   define AWE_PACKET_PARSER(packet_name, a_packet_enum)\

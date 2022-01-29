@@ -7,16 +7,18 @@ namespace AWEngine::Packet::ToServer
     /// Response to `Ping` packet from the server.
     /// Do not try to guess the `Payload`.
     /// Sending multiple `Pong` packets after receiving `Ping` packet may result in termination of the connection by the server.
-    template<typename TPacketEnum>
-    AWE_PACKET(Pong, TPacketEnum)
+    template<typename TPacketEnum, TPacketEnum enumValue>
+    class Pong : IPacket<TPacketEnum>
     {
     public:
         explicit Pong(uint64_t payload)
-                : Payload(payload)
+            : IPacket<TPacketEnum>(enumValue),
+            Payload(payload)
         {
         }
 
         explicit Pong(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
+            : IPacket<TPacketEnum>(enumValue, in)
         {
             in >> Payload;
         }

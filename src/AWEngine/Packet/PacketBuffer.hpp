@@ -31,6 +31,7 @@ namespace AWEngine::Packet
     public:
         /// Empty buffer
         PacketBuffer() = default;
+        /*
         /// From byte array
         inline PacketBuffer(const uint8_t* array, std::size_t arraySize)
         {
@@ -48,6 +49,7 @@ namespace AWEngine::Packet
         /// From byte vector
         inline explicit PacketBuffer(const std::vector<char>& data) : PacketBuffer(reinterpret_cast<const uint8_t*>(data.data()), data.size()) { }
         inline explicit PacketBuffer(std::size_t byteCount, char c = '\0') : m_Data(byteCount, c) {}
+        */
 
     public:
         ~PacketBuffer() = default;
@@ -64,7 +66,7 @@ namespace AWEngine::Packet
         [[nodiscard]] inline uint32_t       size()  const noexcept { return m_Data.size() - m_StartOffset; }
         [[nodiscard]] inline bool           empty() const noexcept { return size() <= 0; }
                       inline void           reserve(std::size_t byteCount) { m_Data.reserve(byteCount); }
-                      inline void           resize(std::size_t byteCount) { m_Data.resize(byteCount); }
+                      inline void           resize(std::size_t byteCount)  { m_Data.resize(byteCount); }
     public:
         [[nodiscard]] inline const std::vector<uint8_t>& Buffer() const noexcept { return m_Data; }
     public:

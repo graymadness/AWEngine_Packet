@@ -3,6 +3,23 @@
 #include <memory>
 #include <utility>
 #include <functional>
+#include <limits>
+
+// Debug breakpoint trigger
+#ifdef DEBUG
+#   if defined(_MSC_VER)
+#       define DEBUG_BREAK __debugbreak();
+#   elif defined(__GNUC__)
+#       define DEBUG_BREAK __builtin_trap();
+#   elif defined(SIGTRAP)
+#       define DEBUG_BREAK raise(SIGTRAP);
+#   else
+#       define DEBUG_BREAK do {} while(0);
+#       warning No way to raise debug break.
+#   endif
+#else
+#   define DEBUG_BREAK do {} while(0);
+#endif
 
 #ifndef AWE_CLASS_PTR
 #   define AWE_CLASS_PTR(awe_name) class awe_name;\
@@ -92,8 +109,8 @@ namespace AWEngine::Packet
     {
         NoMove() = default;
 
-        NoMove(NoMove&&) = delete;
-        NoMove& operator=(NoMove&&) = delete;
+        NoMove(NoMove&&) noexcept = delete;
+        NoMove& operator=(NoMove&&) noexcept = delete;
     };
 
     struct NoCopyOrMove : public NoCopy, public NoMove

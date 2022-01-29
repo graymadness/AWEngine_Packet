@@ -36,14 +36,21 @@ namespace AWEngine::Packet::Util
         std::mutex m_MutexItemPushed = {};
 
     public:
+        [[nodiscard]] inline bool empty() const
+        {
+            std::scoped_lock lock(m_MutesQueue);
+            return m_Data.empty();
+        }
+
+    public:
         /// Read the first item without removing it from the queue
-        const T& peek_front()
+        [[nodiscard]] inline const T& peek_front()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.front();
         }
         /// Read the last item without removing it from the queue
-        const T& peek_back()
+        [[nodiscard]] inline const T& peek_back()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.back();
@@ -93,7 +100,8 @@ namespace AWEngine::Packet::Util
         inline void push_back(const T& item)
         {
             std::scoped_lock lock(m_MutesQueue);
-            m_Data.push_back(std::forward<T>(item));
+            //m_Data.push_back(std::forward<T>(item)); //FIXME ?
+            m_Data.push_back(item);
 
             std::unique_lock<std::mutex> ul(m_MutexItemPushed);
             m_ItemPushed.notify_one();
