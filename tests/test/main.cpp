@@ -4,7 +4,8 @@
 enum class PacketID : uint8_t
 {
     MsgA = 0u,
-    MsgB = 1u
+    MsgB = 1u,
+    MsgC = 2u
 };
 
 using namespace AWEngine;
@@ -20,6 +21,13 @@ struct MsgA : public IPacket<PacketID>
 struct MsgB : public IPacket<PacketID>
 {
     MsgB() : IPacket<PacketID>(PacketID::MsgB) {}
+
+    void Write(PacketBuffer& out) const override {}
+};
+
+struct MsgC : public IPacket<PacketID>
+{
+    MsgC() : IPacket<PacketID>(PacketID::MsgC) {}
 
     void Write(PacketBuffer& out) const override {}
 };
@@ -42,26 +50,31 @@ int main(int argc, const char** argv)
                     return std::make_unique<MsgA>();
                 case PacketID::MsgB:
                     return std::make_unique<MsgB>();
+                case PacketID::MsgC:
+                    return std::make_unique<MsgC>();
                 default:
-                    throw std::runtime_error("Unknown packet");
+                    throw std::runtime_error("Unknown packet with ID=" + std::to_string(int(info.Header.ID)));
             }
         }
     );
-    server.OnClientConnect = [](const PacketServer<PacketID>::Client_t& client) -> bool
+    server.OnClientConnect = [&](const PacketServer<PacketID>::Client_t& client) -> bool
     {
-        std::cout << "Client connected" << std::endl;
+        std::cout << "Client " << client->RemoteEndpoint() << " connected" << std::endl;
         return true;
     };
-    server.OnClientDisconnect = [](const PacketServer<PacketID>::Client_t& client) -> void
+    server.OnClientDisconnect = [&](const PacketServer<PacketID>::Client_t& client) -> void
     {
-        std::cout << "Client disconnected" << std::endl;
+        std::cout << "Client " << client->RemoteEndpoint() << " disconnected" << std::endl;
     };
-    server.OnMessage = [](const PacketServer<PacketID>::Client_t& client, PacketServer<PacketID>::PacketInfo_t& info) -> void
+    server.OnMessage = [&](const PacketServer<PacketID>::Client_t& client, PacketServer<PacketID>::PacketInfo_t& info) -> void
     {
-        std::cout << "Message received, Packet ID =" << int(info.Header.ID) << std::endl;
+        std::cout << "Message received from " << client->RemoteEndpoint() << ", Packet ID = " << int(info.Header.ID) << std::endl;
+    };
+    server.OnPacket = [&](const PacketServer<PacketID>::Client_t& client, PacketServer<PacketID>::Packet_ptr& packet) -> void
+    {
+        std::cout << "Packet  received from " << client->RemoteEndpoint() << ", Packet ID = " << int(packet->ID) << std::endl;
 
-        if(client != nullptr)
-            client->Send(MsgA());
+        client->Send(packet);
     };
     server.Start();
 
@@ -71,22 +84,49 @@ int main(int argc, const char** argv)
 
     PacketClient<PacketID> client = PacketClient<PacketID>();
     client.Connect("localhost");
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    client.WaitForConnect();
 
 #pragma endregion
 
-    client.Send(MsgA());
-    client.Send(MsgB());
-    client.Send(MsgA());
+#pragma region Client2
 
-    std::cout << "client.HasIncoming() = " << client.HasIncoming() << std::endl;
+    PacketClient<PacketID> client2 = PacketClient<PacketID>();
+    client2.Connect("localhost");
+    client2.WaitForConnect();
+
+#pragma endregion
+
+    // Send testing messages
+    {
+        client2.Send(MsgC());
+
+        client.Send(MsgA());
+        client.Send(MsgB());
+        client.Send(MsgA());
+        client.Send(MsgB());
+
+        client2.Send(MsgC());
+    }
+
+    // Wait for messages to get from client to server
+    std::cout << "Waiting for 2 seconds..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::cout << "2 seconds passed" << std::endl;
+
+    // Process messages on server
+    int processedMessages = server.Update(-1, false);
+    std::cout << "Processed " << processedMessages << " messages" << std::endl;
 
     std::cout << "Waiting for 2 seconds..." << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(2));
     std::cout << "2 seconds passed" << std::endl;
 
-    int processedMessages = server.Update(-1, false);
-    std::cout << "Processed " << processedMessages << " messages" << std::endl;
+    std::cout << "client.HasIncoming() = " << (client.HasIncoming() ? "yes" : "no") << " (" << client.Incoming().size() << ")" << std::endl;
+    std::cout << "client2.HasIncoming() = " << (client2.HasIncoming() ? "yes" : "no") << " (" << client2.Incoming().size() << ")" << std::endl;
 
-    std::cout << "client.HasIncoming() = " << client.HasIncoming() << std::endl;
+    while(client.HasIncoming())
+        std::cout << "client: " << int(client.Incoming().pop_front().second.Header.ID) << std::endl;
+
+    while(client2.HasIncoming())
+        std::cout << "client2: " << int(client2.Incoming().pop_front().second.Header.ID) << std::endl;
 }

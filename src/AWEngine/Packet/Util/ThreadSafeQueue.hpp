@@ -73,7 +73,7 @@ namespace AWEngine::Packet::Util
         inline void push_front(const T& item)
         {
             std::scoped_lock lock(m_MutesQueue);
-            m_Data.push_front(std::forward<T>(item));
+            m_Data.push_front(item);
 
             std::unique_lock<std::mutex> ul(m_MutexItemPushed);
             m_ItemPushed.notify_one();
@@ -93,7 +93,6 @@ namespace AWEngine::Packet::Util
         inline void push_back(const T& item)
         {
             std::scoped_lock lock(m_MutesQueue);
-            //m_Data.push_back(std::forward<T>(item)); //FIXME ?
             m_Data.push_back(item);
 
             std::unique_lock<std::mutex> ul(m_MutexItemPushed);

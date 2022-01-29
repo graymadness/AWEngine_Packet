@@ -50,8 +50,7 @@ namespace AWEngine::Packet::Util
         };
     private:
         const PacketDirection m_Direction;
-
-        ConnectionStatus m_Status = ConnectionStatus::Disconnected; //TODO Add disconnect reason
+        bool m_IsConnecting = false;
 
         // Each connection has a unique socket to a remote
         asio::ip::tcp::socket m_Socket;
@@ -66,9 +65,12 @@ namespace AWEngine::Packet::Util
         // This references the incoming queue of the parent object
         ThreadSafeQueue<OwnedMessage_t>& m_MessagesIn;
     public:
-        [[nodiscard]] inline PacketDirection  Direction()   const noexcept { return m_Direction; }
-        [[nodiscard]] inline ConnectionStatus Status()      const noexcept { return m_Status; }
-        [[nodiscard]] inline bool             IsConnected() const noexcept { return m_Socket.is_open(); }
+        [[nodiscard]] inline PacketDirection  Direction()    const noexcept { return m_Direction; }
+        [[nodiscard]] inline bool             IsConnecting() const noexcept { return m_IsConnecting; }
+        [[nodiscard]] inline bool             IsConnected()  const noexcept { return m_Socket.is_open() && !m_IsConnecting; }
+    public:
+        [[nodiscard]] inline asio::ip::tcp::endpoint RemoteEndpoint() const noexcept { return IsConnected() ? m_Socket.remote_endpoint() : asio::ip::tcp::endpoint{}; }
+        [[nodiscard]] inline asio::ip::tcp::endpoint LocalEndpoint()  const noexcept { return IsConnected() ? m_Socket.local_endpoint() : asio::ip::tcp::endpoint{}; }
 
     public:
         void ConnectToClient();
@@ -77,36 +79,8 @@ namespace AWEngine::Packet::Util
         void Disconnect();
 
     public:
-        inline void Send(const Packet::IPacket<TPacketEnum>& packet)
-        {
-            if(!IsConnected())
-                throw std::runtime_error("Not Connected - Send(packet)");
-
-            PacketSendInfo info = {};
-            info.Header.ID = packet.ID;
-
-            packet.Write(info.Body);
-            info.Header.Size = info.Body.size();
-
-            //TODO Compression
-
-            asio::post(
-                m_IoContext,
-                [this, info]()
-                {
-                    // If the queue has a message in it, then we must assume that it is in the process of asynchronously being written.
-                    // Either way add the message to the queue to be output.
-                    // If no messages were available to be written, then start the process of writing the message at the front of the queue.
-                    bool bWritingMessage = !m_MessagesOut.empty();
-                    m_MessagesOut.push_back(info);
-                    if (!bWritingMessage)
-                    {
-                        WriteHeader();
-                    }
-                }
-            );
-        }
-        inline void Send(const std::unique_ptr<const Packet::IPacket<TPacketEnum>>& packet)
+        inline void Send(const Packet::IPacket<TPacketEnum>& packet);
+        inline void Send(const std::unique_ptr<Packet::IPacket<TPacketEnum>>& packet)
         {
             if(packet)
                 Send(*packet);
@@ -146,14 +120,12 @@ namespace AWEngine::Packet::Util
             asio::buffer(&m_MessagesOut.peek_front().Header, sizeof(PacketSendInfo::Header)),
             [this](std::error_code ec, std::size_t length)
             {
-                AWE_DEBUG_COUT("Write Header Callback");
                 // asio has now sent the bytes - if there was a problem an error would be available...
                 if(!ec)
                 {
                     // ... no error, so check if the message header just sent also has a message body...
                     if(!m_MessagesOut.peek_front().Body.empty())
                     {
-                        AWE_DEBUG_COUT("Writing body...");
                         // ...it does, so issue the task to write the body bytes
                         WriteBody();
                     }
@@ -165,14 +137,7 @@ namespace AWEngine::Packet::Util
 
                         // If the queue is not empty, there are more messages to send, so make this happen by issuing the task to send the next header.
                         if(!m_MessagesOut.empty())
-                        {
-                            AWE_DEBUG_COUT("Sending next message... (from header)");
                             WriteHeader();
-                        }
-                        else
-                        {
-                            AWE_DEBUG_COUT("No more messages waiting (from header)");
-                        }
                     }
                 }
                 else
@@ -196,7 +161,6 @@ namespace AWEngine::Packet::Util
             asio::buffer(m_MessagesOut.peek_front().Body.data(), m_MessagesOut.peek_front().Body.size()),
             [this](std::error_code ec, std::size_t length)
             {
-                AWE_DEBUG_COUT("Write Body Callback");
                 if(!ec)
                 {
                     // Sending was successful, so we are done with the message and remove it from the queue
@@ -204,14 +168,7 @@ namespace AWEngine::Packet::Util
 
                     // If the queue still has messages in it, then issue the task to send the next messages' header.
                     if(!m_MessagesOut.empty())
-                    {
-                        AWE_DEBUG_COUT("Sending next message... (from body)");
                         WriteHeader();
-                    }
-                    else
-                    {
-                        AWE_DEBUG_COUT("No more messages waiting (from body)");
-                    }
                 }
                 else
                 {
@@ -234,6 +191,7 @@ namespace AWEngine::Packet::Util
             asio::buffer(&m_WipInMessage.Header, sizeof(PacketSendInfo::Header)),
             [this](std::error_code ec, std::size_t length)
             {
+                m_WipInMessage.Header.Size = be16toh(m_WipInMessage.Header.Size); // Swap from network to local endian
                 if(!ec)
                 {
                     if(m_WipInMessage.Header.Size == 0)
@@ -298,7 +256,7 @@ namespace AWEngine::Packet::Util
         OwnedMessage_t msg = OwnedMessage_t{ nullptr, m_WipInMessage };
         if(m_Direction == PacketDirection::ToClient) // Server's connection
             msg.first = this->shared_from_this();
-        m_MessagesIn.push_back(msg);
+        m_MessagesIn.push_back(std::move(msg));
 
         // We must now prime the asio context to receive the next message.
         // It wil just sit and wait for bytes to arrive, and the message construction process repeats itself.
@@ -324,12 +282,15 @@ namespace AWEngine::Packet::Util
         if(m_Direction == PacketDirection::ToClient)
             throw std::runtime_error("Incorrect direction - Cannot connect to server from connection pointed towards client");
 
+        m_IsConnecting = true;
+
         // Request asio attempts to connect to an endpoint
         asio::async_connect(
             m_Socket,
             endpoints,
             [this](std::error_code ec, const asio::ip::tcp::endpoint& endpoint)
             {
+                m_IsConnecting = false;
                 if (!ec)
                 {
                     std::cout << "Connected to server" << std::endl;
@@ -338,8 +299,6 @@ namespace AWEngine::Packet::Util
                 }
                 else
                 {
-                    m_Status = ConnectionStatus::Disconnected;
-
                     std::cerr << "Failed to connect to the server: " << ec.value() << " - " << ec.message() << std::endl;
                 }
             }
@@ -351,5 +310,36 @@ namespace AWEngine::Packet::Util
     {
         if (IsConnected())
             asio::post(m_IoContext, [this]() { m_Socket.close(); });
+    }
+
+    template<typename TPacketEnum>
+    void Connection<TPacketEnum>::Send(const IPacket<TPacketEnum>& packet)
+    {
+        if(!IsConnected())
+            throw std::runtime_error("Not Connected - Send(packet)");
+
+        PacketSendInfo info = {};
+        info.Header.ID = packet.ID;
+
+        packet.Write(info.Body);
+        info.Header.Size = htobe16(info.Body.size()); // Swap from local to network endian
+
+        //TODO Compression
+
+        asio::post(
+            m_IoContext,
+            [this, info]()
+            {
+                // If the queue has a message in it, then we must assume that it is in the process of asynchronously being written.
+                // Either way add the message to the queue to be output.
+                // If no messages were available to be written, then start the process of writing the message at the front of the queue.
+                bool bWritingMessage = !m_MessagesOut.empty();
+                m_MessagesOut.push_back(std::move(info));
+                if (!bWritingMessage)
+                {
+                    WriteHeader();
+                }
+            }
+        );
     }
 }

@@ -65,6 +65,7 @@ namespace AWEngine::Packet
         PacketClientStatus         m_CurrentStatus      = PacketClientStatus::Disconnected;
     public:
         [[nodiscard]] inline bool                       IsConnected()        const noexcept { return m_Connection && m_Connection->IsConnected(); }
+        [[nodiscard]] inline bool                       IsConnecting()       const noexcept { return m_Connection && m_Connection->IsConnecting(); }
         [[nodiscard]] inline PacketClientDisconnectInfo LastDisconnectInfo() const noexcept { return m_LastDisconnectInfo; }
 
     public:
@@ -72,6 +73,13 @@ namespace AWEngine::Packet
         template<TPacketEnum disconnectPacketId>
         void Disconnect();
         void Disconnect();
+
+    public:
+        inline void WaitForConnect() const
+        {
+            while(!IsConnected() && IsConnecting())
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
 
     private:
         asio::io_context                               m_IoContext;
@@ -104,8 +112,6 @@ namespace AWEngine::Packet
     template<typename TPacketEnum>
     bool PacketClient<TPacketEnum>::Connect(const std::string& host, uint16_t port)
     {
-        AWE_DEBUG_COUT("Connect");
-
         if(m_CurrentStatus != PacketClientStatus::Disconnected)
             throw std::runtime_error("Already connected");
 
@@ -149,8 +155,6 @@ namespace AWEngine::Packet
     template<TPacketEnum disconnectPacketId>
     void PacketClient<TPacketEnum>::Disconnect()
     {
-        AWE_DEBUG_COUT("Disconnect");
-
         if(!IsConnected())
             return;
 
@@ -176,8 +180,6 @@ namespace AWEngine::Packet
     template<typename TPacketEnum>
     void PacketClient<TPacketEnum>::Disconnect()
     {
-        AWE_DEBUG_COUT("Disconnect2");
-
         if(!IsConnected())
             return;
 

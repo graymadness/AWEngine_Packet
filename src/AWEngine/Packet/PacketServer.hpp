@@ -41,6 +41,8 @@ namespace AWEngine::Packet
           m_Endpoint(asio::ip::tcp::endpoint(m_Config.IP, m_Config.Port)),
           m_AsioAcceptor(m_IoContext, m_Endpoint) //TODO Multiple IPs (at least IPv4 and IPv6 at the same time)
         {
+            if(!m_Parser)
+                throw std::runtime_error("No parser provided");
         }
 
         ~PacketServer()
@@ -52,6 +54,9 @@ namespace AWEngine::Packet
         PacketServerConfiguration m_Config;
         asio::ip::tcp::endpoint   m_Endpoint;
         PacketParser_t            m_Parser;
+
+    public:
+        [[nodiscard]] inline Packet_ptr ParsePacket(PacketInfo_t& info) { return m_Parser(info); }
 
     private:
         // Thread Safe Queue for incoming message packets
@@ -78,19 +83,24 @@ namespace AWEngine::Packet
     public:
         /// ASYNC - Instruct asio to wait for connection
         void WaitForClientConnection();
-        /// Send a message to a specific client
+        /// Send a message to a specific client.
         void MessageClient(const Client_t& client, const PacketInfo_t& packet);
-        /// Send message to all clients
+        /// Send message to all clients.
         void MessageAllClients(const PacketInfo_t& packet, const Client_t& ignoredClient = nullptr);
-        /// Force server to respond to incoming messages
+        /// Force server to respond to incoming messages.
         int Update(size_t maximumMessages = -1, bool waitForMessage = false);
     public:
-        /// Called when a client connects, you can veto the connection by returning false
+        /// Called when a client connects, you can veto the connection by returning false.
         std::function<bool(const Client_t&)> OnClientConnect;
-        /// Called when a client appears to have disconnected
+        /// Called when a client appears to have disconnected.
         std::function<void(const Client_t&)> OnClientDisconnect;
-        /// Called when a message arrives
+        /// Called when a message arrives.
+        /// Processed during `Update` not when received.
+        /// Warning: Header flags are original (unprocessed) but the packet was already processed from network format.
         std::function<void(const Client_t&, PacketInfo_t&)> OnMessage;
+        /// Called when a message arrives and is processed into a packet.
+        /// Processed during `Update` not when received.
+        std::function<void(const Client_t&, Packet_ptr&)> OnPacket;
     };
 
     template<typename TPacketEnum>
@@ -258,9 +268,21 @@ namespace AWEngine::Packet
             // Grab the front message
             auto msg = m_MessageInQueue.pop_front();
 
+            if(msg.second.Header.Flags & PacketFlags::Compressed)
+            {
+                throw std::runtime_error("Packet compression is not supported");
+            }
+
             // Pass to message handler
             if(OnMessage)
                 OnMessage(msg.first, msg.second);
+
+            //TODO Process some universal packets if their IDs were defined
+
+            std::unique_ptr<IPacket<TPacketEnum>> packet = ParsePacket(msg.second);
+            if(packet)
+                if(OnPacket)
+                    OnPacket(msg.first, packet);
         }
         return messageIndex;
     }
