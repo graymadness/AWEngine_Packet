@@ -22,6 +22,7 @@ namespace AWEngine::Packet
 
     AWE_ENUM_FLAGS(PacketFlags, uint8_t)
     {
+        /// Data in the packet are compressed by ________
         Compressed  = 1u << 0u,
         Unused_Bit1 = 1u << 1u,
         Unused_Bit2 = 1u << 2u,

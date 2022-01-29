@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <utility>
+#include <functional>
 
 #ifndef AWE_CLASS
 #   define AWE_CLASS(awe_name) class awe_name

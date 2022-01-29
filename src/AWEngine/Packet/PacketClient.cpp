@@ -8,10 +8,12 @@
 
 namespace AWEngine::Packet
 {
-    PacketClient::PacketClient(std::size_t maxOutputQueueSize)
+    PacketClient::PacketClient(
+        std::size_t maxReceiveQueueSize
+        )
             : m_IoContext(),
               m_Socket(m_IoContext),
-              MaxReceivedQueueSize(maxOutputQueueSize)
+              MaxReceiveQueueSize(maxReceiveQueueSize)
     {
     }
 
@@ -24,24 +26,63 @@ namespace AWEngine::Packet
 
     void PacketClient::Connect(const std::string& host, uint16_t port)
     {
-        if(IsConnected())
+        if(m_CurrentStatus != Status::Disconnected)
             throw std::runtime_error("Already connected");
 
-        ReceivedQueue.clear();
+        // Clear info
+        {
+            ReceiveQueue.clear();
+            m_SendQueue.clear();
 
-        using tcp = asio::ip::tcp;
-        tcp::resolver resolver(m_IoContext);
+            m_ReceivedPacketCount = 0;
+            m_SentPacketCount = 0;
 
-        asio::connect(m_Socket, resolver.resolve(host, std::to_string(port)));
-        if(ConnectCallback)
-            ConnectCallback();
+            m_Closing = false;
 
-        m_Closing = false;
+            m_CurrentStatus = Status::Connecting;
+        }
 
-        m_ReceivedPacketCount = 0;
-        m_SentPacketCount = 0;
 
-        m_ReceiveThread = std::thread([this]() -> void
+        try
+        {
+            using tcp = asio::ip::tcp;
+            tcp::resolver resolver(m_IoContext);
+            m_EndPoint = resolver.resolve(host, std::to_string(port))->endpoint();
+
+            //asio::connect(m_Socket, m_EndPoint);
+            asio::async_connect(
+                m_Socket,
+                m_EndPoint,
+                [this](std::error_code ec, const asio::ip::tcp::endpoint& endpoint)
+                {
+                    if (!ec)
+                    {
+                        m_CurrentStatus = Status::Connected;
+
+                        ReadHeader();
+                    }
+                    else // Failed
+                    {
+                        m_CurrentStatus = Status::Disconnected;
+                        m_LastDisconnectInfo = {
+                            DisconnectReason::ConnectionError,
+                            false,
+                            "Failed to connect to the server"
+                        };
+                    }
+                }
+            );
+
+            // Start Context Thread
+            m_ThreadContext = std::thread([this]() { m_IoContext.run(); });
+        }
+        catch (std::exception& e)
+        {
+            std::cerr << "Client Exception: " << e.what() << "\n";
+        }
+
+        /*
+        m_ReceiveThread = std::thread([&]() -> void
                                       {
                                           using namespace ::AWEngine::Packet;
                                           PacketBuffer tmpBuffer;
@@ -180,19 +221,45 @@ namespace AWEngine::Packet
                                                   std::cerr << "Failed to close Socket; Error Code " << error.value() << ": " << error.message() << std::endl;
                                           }
                                       });
+                                      */
     }
 
     void PacketClient::Disconnect()
     {
-        if(!IsConnected())
-            return;
+        switch(CurrentStatus())
+        {
+            default: throw std::runtime_error("Unknown current status");
+            case Status::Disconnected: return; // Already disconnected
+            {
+                throw std::runtime_error("Not Implemented");
+            }
+            case Status::Connected:
+            {
+                m_SendQueue.clear();
+                // Tell server that the disconnect was "by decision" and not an error
+                Send(::AWEngine::Packet::ToServer::Disconnect());
 
-        // Tell server that the disconnect was "by decision" and not an error
-        Send(::AWEngine::Packet::ToServer::Disconnect());
+                //TODO Wait idle?
+            }
+            case Status::Connecting:
+            {
+                m_IoContext.stop();
 
-        // Tell receiving thread to quit and wait for it
-        m_Closing = true;
-        if(m_ReceiveThread.joinable())
-            m_ReceiveThread.join();
+                if(m_ThreadContext.joinable())
+                    m_ThreadContext.join();
+
+                break;
+            }
+        }
+    }
+
+    void PacketClient::GetServerStatusAsync(
+        const std::string& host,
+        uint16_t port,
+        std::function<::AWEngine::Packet::ToClient::Login::ServerInfo> infoCallback,
+        std::function<void> errorcallback
+    )
+    {
+
     }
 }
