@@ -7,24 +7,23 @@
 #include "asio.hpp"
 
 #include "IPacket.hpp"
-#include "PacketWrapper.hpp"
 #include "ProtocolInfo.hpp"
 #include "AWEngine/Packet/ToClient/Login/ServerInfo.hpp"
-#include <AWEngine/Packet/Util/ThreadSafeQueue.h>
+#include <AWEngine/Packet/Util/ThreadSafeQueue.hpp>
 
 namespace AWEngine::Packet
 {
-    AWE_CLASS(PacketClient)
+    class PacketClient
     {
     public:
-        AWE_ENUM(Status, uint8_t)
+        enum class Status : uint8_t
         {
             Disconnected = 0,
             Connecting,
             Connected
         };
 
-        AWE_ENUM(DisconnectReason, uint8_t)
+        enum class DisconnectReason : uint8_t
         {
             Unknown = 0,
             ClientRequest = 1,
@@ -32,7 +31,7 @@ namespace AWEngine::Packet
             ConnectionError = 3
         };
 
-        AWE_STRUCT(DisconnectInfo)
+        struct DisconnectInfo
         {
             DisconnectReason Reason = DisconnectReason::Unknown;
             bool TranslateMessage = false;
@@ -74,7 +73,7 @@ namespace AWEngine::Packet
         /// Queue of packets for the client to read from different threads.
         /// Try to pick items from the queue every tick otherwise it may overflow `MaxReceivedQueueSize` and terminate the connection.
         /// Cleared on `Connect`.
-        ::AWEngine::Util::ThreadSafeQueue<Packet::IPacket_uptr> ReceiveQueue;
+        ::AWEngine::Packet::Util::ThreadSafeQueue<Packet::IPacket_uptr> ReceiveQueue;
         static const std::size_t MaxReceiveQueueSize_Default = 128;
         /// Maximum items in `ReceivedQueue` until it throw an error and terminates the connection.
         const std::size_t MaxReceiveQueueSize;
@@ -84,7 +83,7 @@ namespace AWEngine::Packet
             PacketHeader Header;
             PacketBuffer Body;
         };
-        ::AWEngine::Util::ThreadSafeQueue<SendInfo> m_SendQueue;
+        ::AWEngine::Packet::Util::ThreadSafeQueue<SendInfo> m_SendQueue;
     private:
         void SendAsync_Header();
         void SendAsync_Body(PacketBuffer);
@@ -212,6 +211,7 @@ namespace AWEngine::Packet
         );
     }
 
+    /*
     template<Packet::PacketConcept_ToServer TP>
     void PacketClient::Send(const TP& packet)
     {
@@ -243,6 +243,7 @@ namespace AWEngine::Packet
            }
        );
     }
+     */
 
     std::ostream& operator<<(std::ostream& out, PacketClient::DisconnectReason dr)
     {

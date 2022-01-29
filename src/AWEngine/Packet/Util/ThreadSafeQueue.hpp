@@ -4,7 +4,7 @@
 #include <deque> // double-ended <queue>
 #include <condition_variable>
 
-namespace AWEngine::Util
+namespace AWEngine::Packet::Util
 {
     template<typename T>
     class ThreadSafeQueue

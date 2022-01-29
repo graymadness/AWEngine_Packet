@@ -12,7 +12,6 @@ add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>") # Define DEBUG in Debug builds
 # Options
 #--------------------------------
 
-option(AWE_PACKET_COROUTINE "Enable support of coroutines (async networking)" ON)
 
 #--------------------------------
 # Configuration
@@ -39,6 +38,10 @@ add_library(AWEngine_Packet STATIC ${AWE_Packet_SOURCE})
 target_include_directories(AWEngine_Packet PUBLIC src/)
 
 target_link_libraries(AWEngine_Packet asio pthread)
+
+target_precompile_headers(AWEngine_Packet PUBLIC
+    src/AWEngine/Packet/Util/Core_Packet.hpp
+)
 
 if(GCC)
     target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
@@ -74,22 +77,6 @@ if(DEFINED AWE_PACKET_GAME_NAME)
     else()
         message(FATAL_ERROR "Invalid Protocol Game Name '${AWE_PACKET_GAME_NAME}' - use only UPPER CASE letters")
     endif()
-endif()
-
-# Minimum / Maximum threads for Packet Server (used for IO Context)
-if(DEFINED AWE_PACKET_SERVER_THREAD_MIN)
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MIN=${AWE_PACKET_SERVER_THREAD_MIN})
-else()
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MIN=1)
-endif()
-if(DEFINED AWE_PACKET_SERVER_THREAD_MAX)
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MAX=${AWE_PACKET_SERVER_THREAD_MAX})
-else()
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MAX=1)
-endif()
-
-if(AWE_PACKET_COROUTINE)
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_COROUTINE=1)
 endif()
 
 #--------------------------------

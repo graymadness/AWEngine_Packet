@@ -9,7 +9,7 @@
 
 namespace AWEngine::Packet
 {
-    AWE_STRUCT(PacketHeader)
+    struct PacketHeader
     {
         PacketID_t ID;
         uint16_t Size;
@@ -36,26 +36,26 @@ namespace AWEngine::Packet
     public:
         /// Struct used to identify the packet
         /// Required to be able to send the packet as it defines the ID of the packet.
-        template<::AWEngine::Packet::Direction DIR, PacketID_t ID>
+        template<::AWEngine::Packet::PacketDirection DIR, PacketID_t ID>
         struct PacketInfo
         {
-            [[nodiscard]] inline constexpr        ::AWEngine::Packet::Direction Direction() const noexcept { return DIR; }
+            [[nodiscard]] inline constexpr        ::AWEngine::Packet::PacketDirection Direction() const noexcept { return DIR; }
             [[nodiscard]] inline constexpr        PacketID_t                    PacketID()  const noexcept { return ID; }
 
-            [[nodiscard]] inline consteval static ::AWEngine::Packet::Direction s_Direction() noexcept { return DIR; }
+            [[nodiscard]] inline consteval static ::AWEngine::Packet::PacketDirection s_Direction() noexcept { return DIR; }
             [[nodiscard]] inline consteval static PacketID_t                    s_PacketID()  noexcept { return ID; }
         };
     };
 
     template<typename T>
-    concept PacketConcept_ToClient = std::is_base_of<IPacket, T>::value && T::s_Direction() == ::AWEngine::Packet::Direction::ToClient;
+    concept PacketConcept_ToClient = std::is_base_of<IPacket, T>::value && T::s_Direction() == ::AWEngine::Packet::PacketDirection::ToClient;
     template<typename T>
-    concept PacketConcept_ToServer = std::is_base_of<IPacket, T>::value && T::s_Direction() == ::AWEngine::Packet::Direction::ToServer;
+    concept PacketConcept_ToServer = std::is_base_of<IPacket, T>::value && T::s_Direction() == ::AWEngine::Packet::PacketDirection::ToServer;
 }
 
 #ifndef AWE_PACKET
 #   define AWE_PACKET(packet_name, packet_direction, packet_id)\
-    AWE_CLASS_UPTR(packet_name) : public ::AWEngine::Packet::IPacket, public ::AWEngine::Packet::IPacket::PacketInfo<::AWEngine::Packet::Direction::packet_direction, packet_id>
+    AWE_CLASS_UPTR(packet_name) : public ::AWEngine::Packet::IPacket, public ::AWEngine::Packet::IPacket::PacketInfo<::AWEngine::Packet::PacketDirection::packet_direction, packet_id>
 #endif
 
 #ifndef AWE_PACKET_PARSER

@@ -20,7 +20,7 @@
 
 namespace AWEngine::Packet
 {
-    AWE_CLASS(PacketBuffer)
+    class PacketBuffer
     {
     public:
         static const std::size_t StreamEofBufferStep = 1024;
@@ -64,6 +64,7 @@ namespace AWEngine::Packet
         [[nodiscard]] inline uint32_t       size()  const noexcept { return m_Data.size() - m_StartOffset; }
         [[nodiscard]] inline bool           empty() const noexcept { return size() <= 0; }
                       inline void           reserve(std::size_t byteCount) { m_Data.reserve(byteCount); }
+                      inline void           resize(std::size_t byteCount) { m_Data.resize(byteCount); }
     public:
         [[nodiscard]] inline const std::vector<uint8_t>& Buffer() const noexcept { return m_Data; }
     public:

@@ -33,7 +33,7 @@ namespace AWEngine::Packet
         Unused_Bit7 = 1u << 7u,
     };
 
-    AWE_ENUM(Direction, uint8_t)
+    AWE_ENUM(PacketDirection, uint8_t)
     {
         /// From server to client
         ToClient = 0,

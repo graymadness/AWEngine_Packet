@@ -1,12 +1,21 @@
 #include "PacketClient.hpp"
 
-#include "PacketWrapper.hpp"
-
 #include "AWEngine/Packet/ToServer/Login/Init.hpp"
 #include "AWEngine/Packet/ToClient/Login/ServerInfo.hpp"
 
 namespace AWEngine::Packet
 {
+
+    void PacketClient::GetServerStatusAsync(
+        const std::string& host,
+        uint16_t port,
+        std::function<::AWEngine::Packet::ToClient::Login::ServerInfo> infoCallback,
+        std::function<void> errorcallback
+    )
+    {
+
+    }
+    /*
     ::AWEngine::Packet::ToClient::Login::ServerInfo PacketClient::GetServerStatus(const std::string& host, uint16_t port)
     {
         using tcp = asio::ip::tcp;
@@ -46,4 +55,5 @@ namespace AWEngine::Packet
             }
         }
     }
+    */
 }

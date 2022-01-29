@@ -1,16 +1,15 @@
 #pragma once
 #include <AWEngine/Packet/Util/Core_Packet.hpp>
 
-#include <AWEngine/Packet/asio.hpp>
 #include "IPacket.hpp"
 #include "ProtocolInfo.hpp"
 
 namespace AWEngine::Packet
 {
-    AWE_CLASS(PacketServer)
+    class PacketServer
     {
     public:
-        AWE_STRUCT(Configuration)
+        struct Configuration
         {
             std::string DisplayName = "Unnamed Server";
             std::string WebsiteUrl = std::string();
@@ -36,11 +35,6 @@ namespace AWEngine::Packet
     private:
         asio::io_context m_IoContext;
         asio::ip::tcp::socket m_Socket;
-#ifdef AWE_PACKET_COROUTINE
-    private:
-        asio::awaitable<void> ListenerAsync(asio::ip::tcp tcpip);
-        asio::awaitable<void> ProcessSocketAsync(asio::tcp_socket socket);
-#endif
 
     public:
         const Configuration Config;

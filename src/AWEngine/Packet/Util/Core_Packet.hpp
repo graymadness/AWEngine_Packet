@@ -4,21 +4,13 @@
 #include <utility>
 #include <functional>
 
-#ifndef AWE_CLASS
-#   define AWE_CLASS(awe_name) class awe_name
-#endif
-
-#ifndef AWE_STRUCT
-#   define AWE_STRUCT(awe_name) struct awe_name
-#endif
-
 #ifndef AWE_CLASS_PTR
 #   define AWE_CLASS_PTR(awe_name) class awe_name;\
     typedef std::shared_ptr<awe_name> awe_name##_ptr;\
     typedef std::shared_ptr<const awe_name> awe_name##_conptr;\
     typedef std::weak_ptr<awe_name> awe_name##_wptr;\
     typedef std::weak_ptr<const awe_name> awe_name##_conwptr;\
-    AWE_CLASS(awe_name)
+    class awe_name
 #endif
 
 #ifndef AWE_STRUCT_PTR
@@ -27,21 +19,21 @@
     typedef std::shared_ptr<const awe_name> awe_name##_conptr;\
     typedef std::weak_ptr<awe_name> awe_name##_wptr;\
     typedef std::weak_ptr<const awe_name> awe_name##_conwptr;\
-    AWE_STRUCT(awe_name)
+    struct awe_name
 #endif
 
 #ifndef AWE_CLASS_UPTR
 #   define AWE_CLASS_UPTR(awe_name) class awe_name;\
     typedef std::unique_ptr<awe_name> awe_name##_uptr;\
     typedef std::unique_ptr<const awe_name> awe_name##_conuptr;\
-    AWE_CLASS(awe_name)
+    class awe_name
 #endif
 
 #ifndef AWE_STRUCT_UPTR
 #   define AWE_STRUCT_UPTR(awe_name) struct awe_name;\
     typedef std::unique_ptr<awe_name> awe_name##_uptr;\
     typedef std::unique_ptr<const awe_name> awe_name##_conuptr;\
-    AWE_STRUCT(awe_name)
+    struct awe_name
 #endif
 
 #ifndef AWE_ENUM

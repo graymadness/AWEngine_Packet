@@ -1,5 +1,7 @@
 #include "PacketClient.hpp"
 
+#include "AWEngine/Packet/Util/DNS.hpp"
+
 #include "AWEngine/Packet/ToClient/Ping.hpp"
 #include "AWEngine/Packet/ToClient/Kick.hpp"
 
@@ -20,8 +22,8 @@ namespace AWEngine::Packet
     PacketClient::~PacketClient()
     {
         m_Closing = true;
-        if(m_ReceiveThread.joinable())
-            m_ReceiveThread.join();
+        if(m_ThreadContext.joinable())
+            m_ThreadContext.join();
     }
 
     void PacketClient::Connect(const std::string& host, uint16_t port)
@@ -45,9 +47,7 @@ namespace AWEngine::Packet
 
         try
         {
-            using tcp = asio::ip::tcp;
-            tcp::resolver resolver(m_IoContext);
-            m_EndPoint = resolver.resolve(host, std::to_string(port))->endpoint();
+            m_EndPoint = Util::DNS::ResolveHost(host, port);
 
             //asio::connect(m_Socket, m_EndPoint);
             asio::async_connect(
@@ -251,15 +251,5 @@ namespace AWEngine::Packet
                 break;
             }
         }
-    }
-
-    void PacketClient::GetServerStatusAsync(
-        const std::string& host,
-        uint16_t port,
-        std::function<::AWEngine::Packet::ToClient::Login::ServerInfo> infoCallback,
-        std::function<void> errorcallback
-    )
-    {
-
     }
 }
