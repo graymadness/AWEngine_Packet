@@ -72,9 +72,6 @@ namespace AWEngine::Packet
         // These things need an asio context
         asio::ip::tcp::acceptor m_AsioAcceptor; // Handles new incoming connection attempts...
 
-        // Clients will be identified in the "wider system" via an ID
-        uint32_t m_IDCounter = 10000;
-
     public:
         /// Starts the server!
         bool Start();
@@ -172,7 +169,7 @@ namespace AWEngine::Packet
 
                         // And very important! Issue a task to the connection's
                         // asio context to sit and wait for bytes to arrive!
-                        newConnection->ConnectToClient(); // m_IDCounter++
+                        newConnection->ConnectToClient();
 
                         AWE_DEBUG_COUT("Connection approved");
                     }
