@@ -171,11 +171,11 @@ namespace AWEngine::Packet
                         // asio context to sit and wait for bytes to arrive!
                         newConnection->ConnectToClient();
 
-                        AWE_DEBUG_COUT("Connection approved");
+                        AWE_DEBUG_COUT("Connection from " << newConnection->RemoteEndpoint() << " approved");
                     }
                     else
                     {
-                        AWE_DEBUG_COUT("Connection Denied");
+                        AWE_DEBUG_COUT("Connection from " << newConnection->RemoteEndpoint() << " denied");
 
                         // Connection will go out of scope with no pending tasks, so will get destroyed automagically due to the wonder of smart pointers
                     }
