@@ -9,8 +9,11 @@ enum class PacketID : uint8_t
 
     //----------------
 
-    Ping       = 0xF1u,
+    Ping       = 0xF0u,
     Pong       = Ping, // Can be same because of packet direction
+
+    Init       = 0xF1u,
+    ServerInfo = Init, // Can be same because of packet direction
 
     Kick       = 0xFFu,
     Disconnect = Kick // Can be same because of packet direction
@@ -48,7 +51,9 @@ int main()
     serverConfig.DisplayName = "Code Test Server";
     serverConfig.MaxPlayers = 1;
 
-    typedef PacketServer<PacketID, PacketID::Ping, PacketID::Kick> PacketServer_t;
+    //typedef PacketServer<PacketID> PacketServer_t;
+    typedef PacketServer<PacketID, PacketID::Ping, PacketID::Kick, PacketID::ServerInfo> PacketServer_t;
+
     PacketServer_t server(
         serverConfig,
         [](PacketServer_t::PacketInfo_t& info) -> PacketServer_t::Packet_ptr
@@ -73,20 +78,20 @@ int main()
         "AWE_TST",
         0
     );
-    server.OnClientConnect = [&](const PacketServer_t::Client_t& client) -> bool
+    server.OnClientConnect = [&](const PacketServer_t::Connection_ptr& client) -> bool
     {
         std::cout << "Client " << client->RemoteEndpoint() << " connected" << std::endl;
         return true;
     };
-    server.OnClientDisconnect = [&](const PacketServer_t::Client_t& client) -> void
+    server.OnClientDisconnect = [&](const PacketServer_t::Connection_ptr& client) -> void
     {
         std::cout << "Client " << client->RemoteEndpoint() << " disconnected" << std::endl;
     };
-    server.OnMessage = [&](const PacketServer_t::Client_t& client, PacketServer_t::PacketInfo_t& info) -> void
+    server.OnMessage = [&](const PacketServer_t::Connection_ptr& client, PacketServer_t::PacketInfo_t& info) -> void
     {
         std::cout << "Message received from " << client->RemoteEndpoint() << ", Packet ID = " << int(info.Header.ID) << std::endl;
     };
-    server.OnPacket = [&](const PacketServer_t::Client_t& client, PacketServer_t::Packet_ptr& packet) -> void
+    server.OnPacket = [&](const PacketServer_t::Connection_ptr& client, PacketServer_t::Packet_ptr& packet) -> void
     {
         std::cout << "Packet  received from " << client->RemoteEndpoint() << ", Packet ID = " << int(packet->ID) << std::endl;
 
@@ -96,11 +101,12 @@ int main()
 
 #pragma endregion
 
-    typedef PacketClient<PacketID, PacketID::Pong, PacketID::Disconnect> PacketClient_t;
+    typedef PacketClient<PacketID, PacketID::Pong, PacketID::Disconnect, PacketID::Init> PacketClient_t;
+    //typedef PacketClient<PacketID> PacketClient_t;
 
 #pragma region Client
 
-    PacketClient_t client = PacketClient_t();
+    PacketClient_t client = PacketClient_t("AWE_TST", 0);
     client.Connect("localhost");
     client.WaitForConnect();
 
@@ -108,7 +114,7 @@ int main()
 
 #pragma region Client2
 
-    PacketClient_t client2 = PacketClient_t();
+    PacketClient_t client2 = PacketClient_t("AWE_TST", 0);
     client2.Connect("localhost");
     client2.WaitForConnect();
 

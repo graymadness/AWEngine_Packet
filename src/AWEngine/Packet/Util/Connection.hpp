@@ -7,22 +7,38 @@
 #include "ThreadSafeQueue.hpp"
 #include "AWEngine/Packet/PacketBuffer.hpp"
 #include "AWEngine/Packet/Ping.hpp"
+#include "AWEngine/Packet/ToServer/Login/Init.hpp"
 
 namespace AWEngine::Packet::Util
 {
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    class Connection : public std::enable_shared_from_this<Connection<TPacketID, PacketID_KeepAlive>>
+    enum class ClientState : uint8_t
+    {
+        /// Active connection but no intent was received (yet).
+        Unknown = 0,
+        /// Client requested server info.
+        /// Will be disconnected in a moment.
+        ServerInfo,
+        /// Client wishes to join.
+        Play
+    };
+
+    template<
+        typename TPacketID,
+        TPacketID PacketID_KeepAlive,
+        TPacketID PacketID_Init // also ServerInfo
+    >
+    class Connection : public std::enable_shared_from_this<Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>>
     {
     public:
         struct PacketSendInfo
         {
             PacketHeader<TPacketID> Header;
-            PacketBuffer              Body;
+            PacketBuffer            Body;
         };
 
-        typedef std::shared_ptr<Connection<TPacketID, PacketID_KeepAlive>> Client_t;
-        typedef PacketSendInfo                                             PacketInfo_t;
-        typedef std::pair<Client_t, PacketInfo_t>                          OwnedMessage_t;
+        typedef std::shared_ptr<Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>> Connection_ptr;
+        typedef PacketSendInfo                                                            PacketInfo_t;
+        typedef std::pair<Connection_ptr, PacketInfo_t>                                   OwnedMessage_t;
 
     public:
         /// Constructor: Specify Owner, connect to context, transfer the socket
@@ -54,7 +70,10 @@ namespace AWEngine::Packet::Util
 
     private:
         const PacketDirection m_Direction;
-        bool                  m_IsConnecting  = false;
+        bool                  m_IsConnecting = false;
+        ClientState           m_ClientState  = ClientState::Unknown;
+
+        std::unique_ptr<IPacket<TPacketID>> m_InitPacket = nullptr;
 
         uint64_t    m_LastKeepAliveValue      = 0;
         TimePoint_t m_LastKeepAlive           = std::chrono::system_clock::now();
@@ -87,7 +106,7 @@ namespace AWEngine::Packet::Util
 
     public:
         void ConnectToClient();
-        void ConnectToServer(const asio::ip::tcp::resolver::results_type& endpoints);
+        void ConnectToServer(const asio::ip::tcp::resolver::results_type& endpoints, std::unique_ptr<IPacket<TPacketID>> initPacket);
 
         void Disconnect();
 
@@ -129,8 +148,8 @@ namespace AWEngine::Packet::Util
 }
 namespace AWEngine::Packet::Util
 {
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::WriteHeader()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::WriteHeader()
     {
         if(!IsConnected())
             throw std::runtime_error("Not Connected - WriteHeader()");
@@ -176,8 +195,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::WriteBody()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::WriteBody()
     {
         // If this function is called, a header has just been sent, and that header indicated a body existed for this message.
         // Fill a transmission buffer with the body data, and send it!
@@ -208,8 +227,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::ReadHeader()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::ReadHeader()
     {
         // If this function is called, we are expecting asio to wait until it receives enough bytes to form a header of a message.
         // We know the headers are a fixed size, so allocate a transmission buffer large enough to store it.
@@ -244,8 +263,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::ReadBody()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::ReadBody()
     {
         m_WipInMessage.Body.resize(m_WipInMessage.Header.Size);
 
@@ -278,8 +297,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::AddToIncomingMessageQueue()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::AddToIncomingMessageQueue()
     {
         OwnedMessage_t msg = OwnedMessage_t{ nullptr, m_WipInMessage };
         if(m_Direction == PacketDirection::ToClient) // Server's connection
@@ -290,27 +309,50 @@ namespace AWEngine::Packet::Util
 
         if(msg.second.Header.ID == PacketID_KeepAlive)
         {
+            if(msg.second.Header.Flags != PacketFlags{})
+                throw std::runtime_error("KeepAlive packet cannot have any flags");
+            if(msg.second.Header.Size != sizeof(uint64_t))
+                throw std::runtime_error("KeepAlive packet has invalid size");
+
             if(m_Direction == PacketDirection::ToServer) // Owned by client
             {
                 m_LastKeepAlive = std::chrono::system_clock::now();
 
                 // Send back
-                if(msg.second.Header.Flags == PacketFlags{} && msg.second.Header.Size == sizeof(uint64_t))
-                {
-                    uint64_t payload = *reinterpret_cast<const uint64_t*>(msg.second.Body.data());
-                    Send(::AWEngine::Packet::Ping<TPacketID, PacketID_KeepAlive>(payload));
-                }
+                uint64_t payload = *reinterpret_cast<const uint64_t*>(msg.second.Body.data());
+                Send(::AWEngine::Packet::Ping<TPacketID, PacketID_KeepAlive>(payload));
             }
 
             if(m_Direction == PacketDirection::ToClient) // Owned by server
             {
-                if(msg.second.Header.Flags == PacketFlags{} && msg.second.Header.Size == sizeof(uint64_t))
+                uint64_t payload = *reinterpret_cast<const uint64_t*>(msg.second.Body.data());
+                if(payload == m_LastKeepAliveValue)
+                    m_LastKeepAlive = std::chrono::system_clock::now();
+                else
+                    m_LastKeepAlive = TimePoint_t(); // Will cause it to drop in next KeepAlive check
+            }
+        }
+
+        if(msg.second.Header.ID == PacketID_Init)
+        {
+            if(m_Direction == PacketDirection::ToClient) // Owned by server
+            {
+                if(msg.second.Header.Flags != PacketFlags{})
+                    throw std::runtime_error("Init packet cannot have any flags");
+                if(msg.second.Header.Size != sizeof(uint64_t))
+                    throw std::runtime_error("Init packet has invalid size");
+
+                ::AWEngine::Packet::ToServer::Login::Init<TPacketID, PacketID_Init> initPacket = ::AWEngine::Packet::ToServer::Login::Init<TPacketID, PacketID_Init>(msg.second.Body);
+                switch(initPacket.Next)
                 {
-                    uint64_t payload = *reinterpret_cast<const uint64_t*>(msg.second.Body.data());
-                    if(payload == m_LastKeepAliveValue)
-                        m_LastKeepAlive = std::chrono::system_clock::now();
-                    else
-                        m_LastKeepAlive = TimePoint_t(); // Will cause it to drop in next KeepAlive check
+                    default:
+                        throw std::runtime_error("Unknown Init packet next stage");
+                    case ::AWEngine::Packet::ToServer::Login::NextInitStep::ServerInfo:
+                        //TODO send server info
+                        return;//TODO ReadHeader()
+                    case ::AWEngine::Packet::ToServer::Login::NextInitStep::Join:
+                        //TODO
+                        return;//TODO ReadHeader()
                 }
             }
         }
@@ -328,8 +370,8 @@ namespace AWEngine::Packet::Util
         ReadHeader();
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::ConnectToClient()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::ConnectToClient()
     {
         if (m_Direction == PacketDirection::ToServer)
             throw std::runtime_error("Incorrect direction - Cannot connect to client from connection pointed towards server");
@@ -340,13 +382,17 @@ namespace AWEngine::Packet::Util
         }
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::ConnectToServer(const asio::ip::basic_resolver<asio::ip::tcp, asio::any_io_executor>::results_type& endpoints)
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::ConnectToServer(
+        const asio::ip::tcp::resolver::results_type& endpoints,
+        std::unique_ptr<IPacket<TPacketID>> initPacket
+    )
     {
         if(m_Direction == PacketDirection::ToClient)
             throw std::runtime_error("Incorrect direction - Cannot connect to server from connection pointed towards client");
 
         m_IsConnecting = true;
+        m_InitPacket = std::move(initPacket);
 
         // Request asio attempts to connect to an endpoint
         asio::async_connect(
@@ -354,6 +400,8 @@ namespace AWEngine::Packet::Util
             endpoints,
             [this](std::error_code ec, const asio::ip::tcp::endpoint& endpoint)
             {
+                Send(m_InitPacket);
+
                 m_IsConnecting = false;
                 if (!ec)
                 {
@@ -369,18 +417,26 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::Disconnect()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::Disconnect()
     {
         if (IsConnected())
             asio::post(m_IoContext, [this]() { m_Socket.close(); });
     }
 
-    template<typename TPacketID, TPacketID PacketID_KeepAlive>
-    void Connection<TPacketID, PacketID_KeepAlive>::Send(const IPacket<TPacketID>& packet)
+    template<typename TPacketID, TPacketID PacketID_KeepAlive, TPacketID PacketID_Init>
+    void Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>::Send(const IPacket<TPacketID>& packet)
     {
         if(!IsConnected())
             throw std::runtime_error("Not Connected - Send(packet)");
+
+        if(packet.ID == PacketID_Init)
+        {
+            if(m_Direction == PacketDirection::ToServer) // Owned by client
+            {
+                //TODO Store requested next stage
+            }
+        }
 
         PacketSendInfo info = {};
         info.Header.ID = packet.ID;

@@ -6,10 +6,10 @@ Developer as part of AWEngine project but can be used independently.
 
 ## Libraries
 
-| Name | License | Version |
-|------|---------|---------|
-| [Asio C++](http://think-async.com/Asio/) | [`Boost`](https://www.boost.org/LICENSE_1_0.txt) | branch: [`master`](https://github.com/chriskohlhoff/asio/tree/master) |
-| [`portable_endian.h`](https://gist.github.com/panzi/6856583) | `Public Domain` |  |
+| Name                                                         | License                                          | Version                                                               |
+|--------------------------------------------------------------|--------------------------------------------------|-----------------------------------------------------------------------|
+| [Asio C++](http://think-async.com/Asio/)                     | [`Boost`](https://www.boost.org/LICENSE_1_0.txt) | branch: [`master`](https://github.com/chriskohlhoff/asio/tree/master) |
+| [`portable_endian.h`](https://gist.github.com/panzi/6856583) | `Public Domain`                                  |                                                                       |
 
 All libraries are used as `static library` to maximize optimization and limit problems with deployment and versions.
 
@@ -44,6 +44,9 @@ For more info, see [Asio's Supported Platforms](https://www.boost.org/doc/libs/d
 
 - Maximum 256 packet types in each direction
 - Some IDs for packets are reserved
-  - Ping and Pong packets must share same ID
+  - Some packets must share same IDs 
+    - Server's `Ping`       and client's `Pong`
+    - Server's `ServerInfo` and client's `Init`
+    - Server's `Kick`       and client's `Disconnect`
   - Universal ServerInfo (game communication initialization)
-  - Kick / Disconnect packets
+  - Last 16 IDs (`0xF.`) are reserved for general protocol and future expansion

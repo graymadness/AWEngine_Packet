@@ -21,7 +21,12 @@ namespace AWEngine::Packet
         uint16_t              Port        = DefaultPort;
     };
 
-    template<typename TPacketID, TPacketID PacketID_Ping = TPacketID(0xF0u), TPacketID PacketID_Kick = TPacketID(0xFFu)>
+    template<
+        typename TPacketID,
+        TPacketID PacketID_Ping = TPacketID(0xF0u),
+        TPacketID PacketID_Kick = TPacketID(0xFFu),
+        TPacketID PacketID_ServerInfo = TPacketID(0xF1u)
+    >
     class PacketServer : public ::AWEngine::Packet::NoCopy
     {
     public:
@@ -29,7 +34,7 @@ namespace AWEngine::Packet
         static_assert(sizeof(TPacketID) == 1);
 
         typedef Util::Connection<TPacketID, PacketID_Ping> Connection_t;
-        typedef typename Connection_t::Client_t            Client_t;
+        typedef typename Connection_t::Connection_ptr      Connection_ptr;
         typedef typename Connection_t::PacketInfo_t        PacketInfo_t;
         typedef std::unique_ptr<IPacket<TPacketID>>        Packet_ptr;
         typedef typename Connection_t::OwnedMessage_t      OwnedMessage_t;
@@ -43,12 +48,12 @@ namespace AWEngine::Packet
             ProtocolGameName          gameName,
             ProtocolGameVersion       gameVersion
         )
-        : m_Config(std::move(config)),
-          m_Parser(std::move(packetParser)),
-          m_Endpoint(asio::ip::tcp::endpoint(m_Config.IP, m_Config.Port)),
-          m_AsioAcceptor(m_IoContext, m_Endpoint), //TODO Multiple IPs (at least IPv4 and IPv6 at the same time)
-          m_GameName(gameName),
-          m_GameVersion(gameVersion)
+            : m_Config(std::move(config)),
+              m_Parser(std::move(packetParser)),
+              m_Endpoint(asio::ip::tcp::endpoint(m_Config.IP, m_Config.Port)),
+              m_AsioAcceptor(m_IoContext, m_Endpoint), //TODO Multiple IPs (at least IPv4 and IPv6 at the same time)
+              m_GameName(gameName),
+              m_GameVersion(gameVersion)
         {
             if(!m_Parser)
                 throw std::runtime_error("No parser provided");
@@ -57,6 +62,8 @@ namespace AWEngine::Packet
                 std::cout << "Warning: Ping packet is non-standard ID" << std::endl;
             if(PacketID_Kick != TPacketID(0xFFu))
                 std::cout << "Warning: Kick packet is non-standard ID" << std::endl;
+            if(PacketID_ServerInfo != TPacketID(0xF1u))
+                std::cout << "Warning: ServerInfo packet is non-standard ID" << std::endl;
         }
 
         ~PacketServer()
@@ -79,7 +86,7 @@ namespace AWEngine::Packet
         Util::ThreadSafeQueue<OwnedMessage_t> m_MessageInQueue;
 
         // Container of active validated connections
-        std::deque<Client_t> m_Connections;
+        std::deque<Connection_ptr> m_Connections;
 
         // Order of declaration is important - it is also the order of initialisation
         asio::io_context m_IoContext;
@@ -96,13 +103,14 @@ namespace AWEngine::Packet
         bool Start();
         /// Stops the server!
         void Stop();
-    public:
+    private:
         /// ASYNC - Instruct asio to wait for connection
         void WaitForClientConnection();
+    public:
         /// Send a message to a specific client.
-        void Send(const Client_t& client, const IPacket<TPacketID>& packet);
+        void Send(const Connection_ptr& client, const IPacket<TPacketID>& packet);
         /// Send packet to all clients.
-        void Send_AllClients(const IPacket<TPacketID>& packet, const Client_t& ignoredClient = nullptr);
+        void Send_AllClients(const IPacket<TPacketID>& packet, const Connection_ptr& ignoredClient = nullptr);
         /// Force server to respond to incoming messages.
         std::size_t Update(size_t maximumMessages = -1, bool waitForMessage = false);
         /// Sends KeepAlive packet to all clients.
@@ -110,20 +118,30 @@ namespace AWEngine::Packet
 
     public:
         /// Called when a client connects, you can veto the connection by returning false.
-        std::function<bool(const Client_t&)> OnClientConnect;
+        /// Use to ban based on IP address (based on local cache).
+        /// Called before receiving intent - join or server info.
+        /// Leave empty to accept all
+        std::function<bool(const Connection_ptr&)> OnClientConnect;
+        /// Called after receiving client's intent to join.
+        std::function<void(const Connection_ptr&)> OnClientJoin;
+        /// Called after receiving client's intent to retrieve info.
+        std::function<std::string(const Connection_ptr&)> OnClientServerInfoRequest;
         /// Called when a client appears to have disconnected.
-        std::function<void(const Client_t&)> OnClientDisconnect;
+        std::function<void(const Connection_ptr&)> OnClientDisconnect;
         /// Called when a message arrives.
         /// Processed during `Update` not when received.
         /// Warning: Header flags are original (unprocessed) but the packet was already processed from network format.
-        std::function<void(const Client_t&, PacketInfo_t&)> OnMessage;
+        std::function<void(const Connection_ptr&, PacketInfo_t&)> OnMessage;
         /// Called when a message arrives and is processed into a packet.
         /// Processed during `Update` not when received.
-        std::function<void(const Client_t&, Packet_ptr&)> OnPacket;
+        std::function<void(const Connection_ptr&, Packet_ptr&)> OnPacket;
     };
+}
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick>
-    bool PacketServer<TPacketID, PacketID_Ping, PacketID_Kick>::Start()
+namespace AWEngine::Packet
+{
+    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
+    bool PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Start()
     {
         try
         {
@@ -146,8 +164,8 @@ namespace AWEngine::Packet
         return true;
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick>::Stop()
+    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
+    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Stop()
     {
         // Request the context to close
         m_IoContext.stop();
@@ -160,8 +178,8 @@ namespace AWEngine::Packet
         AWE_DEBUG_COUT("Server stopped!");
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick>::WaitForClientConnection()
+    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
+    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::WaitForClientConnection()
     {
         // Prime context with an instruction to wait until a socket connects.
         // This is the purpose of an "acceptor" object.
@@ -184,13 +202,13 @@ namespace AWEngine::Packet
                     );
 
                     // Give the user server a chance to deny connection
-                    if (OnClientConnect && OnClientConnect(newConnection))
+                    if (!OnClientConnect || OnClientConnect(newConnection))
                     {
                         // Connection allowed, so add to container of new connections
                         m_Connections.push_back(newConnection);
 
-                        // And very important! Issue a task to the connection's
-                        // asio context to sit and wait for bytes to arrive!
+                        // And very important!
+                        // Issue a task to the connection's asio context to sit and wait for bytes to arrive!
                         newConnection->ConnectToClient();
 
                         AWE_DEBUG_COUT("Connection from " << newConnection->RemoteEndpoint() << " approved");
@@ -214,8 +232,8 @@ namespace AWEngine::Packet
         );
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick>::Send(const Client_t& client, const IPacket<TPacketID>& packet)
+    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
+    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Send(const Connection_ptr& client, const IPacket<TPacketID>& packet)
     {
         // Check client is legitimate...
         if (client && client->IsConnected())
@@ -237,22 +255,22 @@ namespace AWEngine::Packet
         }
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick>::Send_AllClients(const IPacket<TPacketID>& packet, const Client_t& ignoredClient)
+    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
+    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Send_AllClients(const IPacket<TPacketID>& packet, const Connection_ptr& ignoredClient)
     {
         bool invalidClientExists = false;
 
         // Iterate through all clients in container
-        for(auto& client : m_Connections)
+        for(auto& connection : m_Connections)
         {
             // Check client is connected...
-            if(client && client->IsConnected())
+            if(connection && connection->IsConnected())
             {
                 // ..it is!
-                if(client != ignoredClient)
-                    client->Send(packet);
+                if(connection != ignoredClient)
+                    connection->Send(packet);
             }
-            else if(client && client->IsConnecting())
+            else if(connection && connection->IsConnecting())
             {
                 // Nothing when connecting
             }
@@ -260,10 +278,10 @@ namespace AWEngine::Packet
             {
                 // The client couldn't be contacted, so assume it has disconnected.
                 if(OnClientDisconnect)
-                    OnClientDisconnect(client);
+                    OnClientDisconnect(connection);
 
                 // Off you go now, bye bye!
-                client.reset();
+                connection.reset();
 
                 // Set this flag to then remove dead clients from container
                 invalidClientExists = true;
@@ -275,8 +293,8 @@ namespace AWEngine::Packet
             m_Connections.erase(std::remove(m_Connections.begin(), m_Connections.end(), nullptr), m_Connections.end());
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick>
-    std::size_t PacketServer<TPacketID, PacketID_Ping, PacketID_Kick>::Update(size_t maximumMessages, bool waitForMessage)
+    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
+    std::size_t PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Update(size_t maximumMessages, bool waitForMessage)
     {
         if (waitForMessage)
             m_MessageInQueue.wait();
@@ -310,25 +328,23 @@ namespace AWEngine::Packet
         return messageIndex;
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick>::SendKeepAlive()
+    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
+    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::SendKeepAlive()
     {
-        AWE_DEBUG_COUT("KeepAlive");
-
         auto oldestKeepAlive = std::chrono::system_clock::now() - KeepAliveMaxDelay;
 
         bool invalidClientExists = false;
-        for(auto& client : m_Connections)
+        for(auto& connection : m_Connections)
         {
             // Check client is connected...
-            if(!client || (!client->IsConnected() && !client->IsConnecting()) || (client->LastKeepAlive() < oldestKeepAlive))
+            if(!connection || (!connection->IsConnected() && !connection->IsConnecting()) || (connection->LastKeepAlive() < oldestKeepAlive))
             {
                 // The client couldn't be contacted, so assume it has disconnected.
                 if(OnClientDisconnect)
-                    OnClientDisconnect(client);
+                    OnClientDisconnect(connection);
 
                 // Off you go now, bye bye!
-                client.reset();
+                connection.reset();
 
                 // Set this flag to then remove dead clients from container
                 invalidClientExists = true;
@@ -339,6 +355,7 @@ namespace AWEngine::Packet
             m_Connections.erase(std::remove(m_Connections.begin(), m_Connections.end(), nullptr), m_Connections.end());
         invalidClientExists = false;
 
+        //TODO Only send KeepAlive to clients with last KeepAlive packet between KeepAliveDelay and KeepAliveMaxDelay
         Ping<TPacketID, PacketID_Ping> ping = Ping<TPacketID, PacketID_Ping>();
         Send_AllClients(ping);
     }
