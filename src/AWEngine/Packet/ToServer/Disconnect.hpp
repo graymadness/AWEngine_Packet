@@ -16,7 +16,7 @@ namespace AWEngine::Packet::ToServer
         }
 
         explicit Disconnect(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
-            : IPacket<TPacketID>(PacketID, in)
+            : IPacket<TPacketID>(PacketID)
         {
         }
 

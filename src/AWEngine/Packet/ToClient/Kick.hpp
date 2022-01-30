@@ -27,7 +27,7 @@ namespace AWEngine::Packet::ToClient
         explicit Kick() : Kick(MessageType::Raw, std::string()) {}
 
         explicit Kick(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
-            : IPacket<TPacketID>(PacketID, in)
+            : IPacket<TPacketID>(PacketID)
         {
             if(in.empty())
             {

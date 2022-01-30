@@ -339,7 +339,7 @@ namespace AWEngine::Packet::Util
             {
                 if(msg.second.Header.Flags != PacketFlags{})
                     throw std::runtime_error("Init packet cannot have any flags");
-                if(msg.second.Header.Size != sizeof(uint64_t))
+                if(msg.second.Header.Size != 17)
                     throw std::runtime_error("Init packet has invalid size");
 
                 ::AWEngine::Packet::ToServer::Login::Init<TPacketID, PacketID_Init> initPacket = ::AWEngine::Packet::ToServer::Login::Init<TPacketID, PacketID_Init>(msg.second.Body);
@@ -400,12 +400,13 @@ namespace AWEngine::Packet::Util
             endpoints,
             [this](std::error_code ec, const asio::ip::tcp::endpoint& endpoint)
             {
-                Send(m_InitPacket);
-
                 m_IsConnecting = false;
+
                 if (!ec)
                 {
                     std::cout << "Connected to server" << std::endl;
+
+                    Send(m_InitPacket);
 
                     ReadHeader();
                 }

@@ -33,11 +33,11 @@ namespace AWEngine::Packet
         static_assert(std::is_enum<TPacketID>());
         static_assert(sizeof(TPacketID) == 1);
 
-        typedef Util::Connection<TPacketID, PacketID_Ping> Connection_t;
-        typedef typename Connection_t::Connection_ptr      Connection_ptr;
-        typedef typename Connection_t::PacketInfo_t        PacketInfo_t;
-        typedef std::unique_ptr<IPacket<TPacketID>>        Packet_ptr;
-        typedef typename Connection_t::OwnedMessage_t      OwnedMessage_t;
+        typedef Util::Connection<TPacketID, PacketID_Ping, PacketID_ServerInfo> Connection_t;
+        typedef typename Connection_t::Connection_ptr                           Connection_ptr;
+        typedef typename Connection_t::PacketInfo_t                             PacketInfo_t;
+        typedef std::unique_ptr<IPacket<TPacketID>>                             Packet_ptr;
+        typedef typename Connection_t::OwnedMessage_t                           OwnedMessage_t;
 
         typedef std::function<Packet_ptr(PacketInfo_t&)> PacketParser_t; //THINK Convert to class?
 

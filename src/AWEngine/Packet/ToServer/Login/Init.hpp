@@ -4,6 +4,7 @@
 
 #include <AWEngine/Packet/IPacket.hpp>
 #include <AWEngine/Packet/Util/LocaleInfo.hpp>
+#include <AWEngine/Packet/ProtocolGameName.hpp>
 
 namespace AWEngine::Packet::ToServer::Login
 {
@@ -54,7 +55,7 @@ namespace AWEngine::Packet::ToServer::Login
         }
 
         explicit Init(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
-            : IPacket<TPacketID>(PacketID, in)
+            : IPacket<TPacketID>(PacketID)
         {
             in >> GameName >> GameVersion >> ClientLocale >> reinterpret_cast<uint8_t&>(Next);
         }
