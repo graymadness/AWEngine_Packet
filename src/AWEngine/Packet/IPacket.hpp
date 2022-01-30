@@ -9,47 +9,47 @@
 
 namespace AWEngine::Packet
 {
-    template<typename TPacketEnum>
+    template<typename TPacketID>
     struct PacketHeader
     {
     public:
-        static_assert(sizeof(TPacketEnum) == 1);
+        static_assert(sizeof(TPacketID) == 1);
         static_assert(sizeof(PacketFlags) == 1);
 
     public:
-        TPacketEnum ID;
+        TPacketID ID;
         PacketFlags Flags;
         uint16_t    Size;
     };
     static_assert(sizeof(PacketHeader<uint8_t>) == 4);
 
-    template<typename T, typename TPacketEnum>
-    concept PacketConcept = std::is_base_of<IPacket<TPacketEnum>, T>::value;
+    template<typename T, typename TPacketID>
+    concept PacketConcept = std::is_base_of<IPacket<TPacketID>, T>::value;
 
-    template<typename TPacketEnum>
+    template<typename TPacketID>
     class IPacket
     {
     public:
-        static_assert(std::is_enum<TPacketEnum>());
-        static_assert(sizeof(TPacketEnum) == 1);
+        static_assert(std::is_enum<TPacketID>());
+        static_assert(sizeof(TPacketID) == 1);
 
     public:
-        explicit IPacket(TPacketEnum id) : ID(id) {}
-        explicit IPacket(TPacketEnum id, PacketBuffer& in) : ID(id) {}
+        explicit IPacket(TPacketID id) : ID(id) {}
+        explicit IPacket(TPacketID id, PacketBuffer& in) : ID(id) {}
 
         virtual ~IPacket() = default;
 
     public:
-        const TPacketEnum ID;
+        const TPacketID ID;
 
     public:
         virtual void Write(PacketBuffer& out) const = 0;
     };
 
-    template<typename T, typename TPacketEnum>
-    concept PacketConcept_ToClient = std::is_base_of<IPacket<TPacketEnum>, T>::value && T::s_Direction() == ::AWEngine::Packet::PacketDirection::ToClient;
-    template<typename T, typename TPacketEnum>
-    concept PacketConcept_ToServer = std::is_base_of<IPacket<TPacketEnum>, T>::value && T::s_Direction() == ::AWEngine::Packet::PacketDirection::ToServer;
+    template<typename T, typename TPacketID>
+    concept PacketConcept_ToClient = std::is_base_of<IPacket<TPacketID>, T>::value && T::s_Direction() == ::AWEngine::Packet::PacketDirection::ToClient;
+    template<typename T, typename TPacketID>
+    concept PacketConcept_ToServer = std::is_base_of<IPacket<TPacketID>, T>::value && T::s_Direction() == ::AWEngine::Packet::PacketDirection::ToServer;
 }
 
 #ifndef AWE_PACKET_PARSER

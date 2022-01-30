@@ -3,13 +3,12 @@
 // To Client
 #include "ToClient/Login/ServerInfo.hpp" // 0x00
 
-#include "ToClient/Ping.hpp" // 0xFE
+#include "Ping.hpp" // 0xFE
 #include "ToClient/Kick.hpp" // 0xFF
 
 // To Server
 #include "ToServer/Login/Init.hpp" // 0x00
 
-#include "ToServer/Pong.hpp"       // 0xFE
 #include "ToServer/Disconnect.hpp" // 0xFF
 
 

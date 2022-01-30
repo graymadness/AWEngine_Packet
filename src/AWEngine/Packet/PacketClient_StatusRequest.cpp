@@ -6,11 +6,11 @@
 namespace AWEngine::Packet
 {
     /*
-    template<typename TPacketEnum>
-    void PacketClient<TPacketEnum>::GetServerStatusAsync(
+    template<typename TPacketID>
+    void PacketClient<TPacketID>::GetServerStatusAsync(
         const std::string& host,
         uint16_t port,
-        std::function<void(::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketEnum>)> infoCallback,
+        std::function<void(::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketID>)> infoCallback,
         std::function<void()> errorcallback
     )
     {
@@ -42,9 +42,9 @@ namespace AWEngine::Packet
 
         // Read response
         {
-            Packet::PacketID_t packetID;
-            Packet::PacketWrapper::ReadPacket(socket, packetID, tmpBuffer);
-            switch(packetID)
+            Packet::PacketID_t PacketID;
+            Packet::PacketWrapper::ReadPacket(socket, PacketID, tmpBuffer);
+            switch(PacketID)
             {
                 default:
                     throw std::runtime_error("Received unexpected packet from the server");

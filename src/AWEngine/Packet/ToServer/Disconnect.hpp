@@ -5,18 +5,18 @@
 namespace AWEngine::Packet::ToServer
 {
     /// Packet sent to server before client terminates the connection to indicate that the disconnect was by decision of the user.
-    template<typename TPacketEnum, TPacketEnum enumValue>
-    class Disconnect : IPacket<TPacketEnum>
+    template<typename TPacketID, TPacketID PacketID>
+    class Disconnect : public IPacket<TPacketID>
     {
     public:
         explicit Disconnect()
-            : IPacket<TPacketEnum>(enumValue)
+            : IPacket<TPacketID>(PacketID)
         {
 
         }
 
         explicit Disconnect(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
-            : IPacket<TPacketEnum>(enumValue, in)
+            : IPacket<TPacketID>(PacketID, in)
         {
         }
 

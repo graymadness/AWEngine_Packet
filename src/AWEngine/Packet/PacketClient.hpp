@@ -36,17 +36,18 @@ namespace AWEngine::Packet
         std::string Message = {};
     };
 
-    template<typename TPacketEnum>
+    template<typename TPacketID, TPacketID PacketID_Pong = TPacketID(0xF0u), TPacketID PacketID_Disconnect = TPacketID(0xFFu)>
     class PacketClient : public NoCopyOrMove
     {
     public:
-        static_assert(std::is_enum<TPacketEnum>());
-        static_assert(sizeof(TPacketEnum) == 1);
+        static_assert(std::is_enum<TPacketID>());
+        static_assert(sizeof(TPacketID) == 1);
 
-        typedef typename Util::Connection<TPacketEnum>::Client_t       Client_t;
-        typedef typename Util::Connection<TPacketEnum>::PacketInfo_t   PacketInfo_t;
-        typedef std::unique_ptr<IPacket<TPacketEnum>>                  Packet_ptr;
-        typedef typename Util::Connection<TPacketEnum>::OwnedMessage_t OwnedMessage_t;
+        typedef Util::Connection<TPacketID, PacketID_Pong> Connection_t;
+        typedef typename Connection_t::Client_t            Client_t;
+        typedef typename Connection_t::PacketInfo_t        PacketInfo_t;
+        typedef std::unique_ptr<IPacket<TPacketID>>        Packet_ptr;
+        typedef typename Connection_t::OwnedMessage_t      OwnedMessage_t;
 
         typedef std::function<Packet_ptr(PacketInfo_t&)> PacketParser_t; //THINK Convert to class?
 
@@ -54,7 +55,13 @@ namespace AWEngine::Packet
         static const uint16_t DefaultPort = 10101;
 
     public:
-        explicit PacketClient() = default;
+        explicit PacketClient()
+        {
+            if(PacketID_Pong != TPacketID(0xF0u))
+                std::cout << "Warning: Pong packet is non-standard ID" << std::endl;
+            if(PacketID_Disconnect != TPacketID(0xFFu))
+                std::cout << "Warning: Disconnect packet is non-standard ID" << std::endl;
+        }
         ~PacketClient()
         {
             Disconnect();
@@ -70,9 +77,8 @@ namespace AWEngine::Packet
 
     public:
         bool Connect(const std::string& host, uint16_t port = DefaultPort);
-        template<TPacketEnum disconnectPacketId>
         void Disconnect();
-        void Disconnect();
+        void DisconnectWithError();
 
     public:
         inline void WaitForConnect() const
@@ -82,14 +88,16 @@ namespace AWEngine::Packet
         }
 
     private:
-        asio::io_context                               m_IoContext;
-        asio::ip::tcp::endpoint                        m_EndPoint;
-        std::thread                                    m_ThreadContext;
-        std::unique_ptr<Util::Connection<TPacketEnum>> m_Connection;
-        asio::ip::tcp::resolver                        m_Resolver = asio::ip::tcp::resolver(m_IoContext);
+        asio::io_context              m_IoContext;
+        std::thread                   m_ThreadContext;
+        std::unique_ptr<Connection_t> m_Connection;
+        asio::ip::tcp::resolver       m_Resolver = asio::ip::tcp::resolver(m_IoContext);
     public:
-        inline void Send(const Packet::IPacket<TPacketEnum>& packet)                        { m_Connection->Send(packet); }
-        inline void Send(const std::unique_ptr<const Packet::IPacket<TPacketEnum>>& packet) { m_Connection->Send(packet); }
+        [[nodiscard]] inline const Connection_t& Connection() const noexcept { return *m_Connection; }
+        [[nodiscard]] inline       Connection_t& Connection()       noexcept { return *m_Connection; }
+    public:
+        inline void Send(const Packet::IPacket<TPacketID>& packet)                        { m_Connection->Send(packet); }
+        inline void Send(const std::unique_ptr<const Packet::IPacket<TPacketID>>& packet) { m_Connection->Send(packet); }
 
     private:
         /// Queue of packets for the client to read from different threads.
@@ -104,26 +112,25 @@ namespace AWEngine::Packet
     inline std::ostream& operator<<(std::ostream& out, PacketClientDisconnectReason dr);
 }
 
-#include "AWEngine/Packet/Util/DNS.hpp"
 #include "AWEngine/Packet/ToServer/Disconnect.hpp"
 
 namespace AWEngine::Packet
 {
-    template<typename TPacketEnum>
-    bool PacketClient<TPacketEnum>::Connect(const std::string& host, uint16_t port)
+    template<typename TPacketID, TPacketID PacketID_Pong, TPacketID PacketID_Disconnect>
+    bool PacketClient<TPacketID, PacketID_Pong, PacketID_Disconnect>::Connect(const std::string& host, uint16_t port)
     {
         if(m_CurrentStatus != PacketClientStatus::Disconnected)
             throw std::runtime_error("Already connected");
 
         try
         {
-            // Resolve hostname/ip-address into tangiable physical address
+            // Resolve hostname/ip-address into tangible physical address
             asio::ip::tcp::resolver::results_type endpoints = m_Resolver.resolve(host, std::to_string(port));
             if(endpoints.empty())
-                throw std::runtime_error("No endpoints");
+                throw std::runtime_error("Failed to parse/retrieve destination address");
 
             // Create connection
-            m_Connection = std::make_unique<Util::Connection<TPacketEnum>>(
+            m_Connection = std::make_unique<Connection_t>(
                 PacketDirection::ToServer,
                 m_IoContext,
                 asio::ip::tcp::socket(m_IoContext),
@@ -151,15 +158,17 @@ namespace AWEngine::Packet
         return true;
     }
 
-    template<typename TPacketEnum>
-    template<TPacketEnum disconnectPacketId>
-    void PacketClient<TPacketEnum>::Disconnect()
+    template<typename TPacketID, TPacketID PacketID_Pong, TPacketID PacketID_Disconnect>
+    void PacketClient<TPacketID, PacketID_Pong, PacketID_Disconnect>::Disconnect()
     {
         if(!IsConnected())
             return;
 
-        // Tell server that the disconnect was "by decision" and not an error
-        Send(::AWEngine::Packet::ToServer::Disconnect<TPacketEnum, disconnectPacketId>());
+        // We do not know which ID is a disconnect packet...
+        Send(::AWEngine::Packet::ToServer::Disconnect<TPacketID, PacketID_Disconnect>());
+
+        // Some delay to give the Disconnect packet at least a chance to be sent to server.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         // Either way, we're also done with the asio context...
         m_IoContext.stop();
@@ -177,14 +186,17 @@ namespace AWEngine::Packet
         };
     }
 
-    template<typename TPacketEnum>
-    void PacketClient<TPacketEnum>::Disconnect()
+    template<typename TPacketID, TPacketID PacketID_Pong, TPacketID PacketID_Disconnect>
+    void PacketClient<TPacketID, PacketID_Pong, PacketID_Disconnect>::DisconnectWithError()
     {
         if(!IsConnected())
             return;
 
         // We do not know which ID is a disconnect packet...
-        //Send(::AWEngine::Packet::ToServer::Disconnect<TPacketEnum, disconnectPacketId>());
+        Send(::AWEngine::Packet::ToServer::Disconnect<TPacketID, PacketID_Disconnect>());
+
+        // Some delay to give the Disconnect packet at least a chance to be sent to server.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         // Either way, we're also done with the asio context...
         m_IoContext.stop();
@@ -198,7 +210,7 @@ namespace AWEngine::Packet
         m_LastDisconnectInfo = {
             PacketClientDisconnectReason::ClientRequest,
             false,
-            "Disconnect requested by user without Disconnect packet"
+            "Requested disconnect with error"
         };
     }
 }

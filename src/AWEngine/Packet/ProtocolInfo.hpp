@@ -5,7 +5,7 @@
 
 namespace AWEngine::Packet
 {
-    template<typename TPacketEnum>
+    template<typename TPacketID>
     class IPacket;
 
     typedef uint32_t ProtocolVersion_t;

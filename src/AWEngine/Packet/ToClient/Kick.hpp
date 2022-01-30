@@ -6,8 +6,8 @@ namespace AWEngine::Packet::ToClient
 {
     /// Packet sent to client before server terminates the connection.
     /// May contain no data if message is empty.
-    template<typename TPacketEnum, TPacketEnum enumValue>
-    class Kick : IPacket<TPacketEnum>
+    template<typename TPacketID, TPacketID PacketID>
+    class Kick : public IPacket<TPacketID>
     {
     public:
         enum class MessageType : uint8_t
@@ -18,7 +18,7 @@ namespace AWEngine::Packet::ToClient
 
     public:
         explicit Kick(MessageType type, std::string message)
-            : IPacket<TPacketEnum>(enumValue),
+            : IPacket<TPacketID>(PacketID),
               Type(type),
               Message(std::move(message))
         {
@@ -27,7 +27,7 @@ namespace AWEngine::Packet::ToClient
         explicit Kick() : Kick(MessageType::Raw, std::string()) {}
 
         explicit Kick(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
-            : IPacket<TPacketEnum>(enumValue, in)
+            : IPacket<TPacketID>(PacketID, in)
         {
             if(in.empty())
             {

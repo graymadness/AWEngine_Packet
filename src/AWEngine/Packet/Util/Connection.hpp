@@ -6,22 +6,23 @@
 #include "AWEngine/Packet/IPacket.hpp"
 #include "ThreadSafeQueue.hpp"
 #include "AWEngine/Packet/PacketBuffer.hpp"
+#include "AWEngine/Packet/Ping.hpp"
 
 namespace AWEngine::Packet::Util
 {
-    template<typename TPacketEnum>
-    class Connection : public std::enable_shared_from_this<Connection<TPacketEnum>>
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    class Connection : public std::enable_shared_from_this<Connection<TPacketID, PacketID_KeepAlive>>
     {
     public:
         struct PacketSendInfo
         {
-            PacketHeader<TPacketEnum> Header;
+            PacketHeader<TPacketID> Header;
             PacketBuffer              Body;
         };
 
-        typedef std::shared_ptr<Connection<TPacketEnum>> Client_t;
-        typedef PacketSendInfo                           PacketInfo_t;
-        typedef std::pair<Client_t, PacketInfo_t>        OwnedMessage_t;
+        typedef std::shared_ptr<Connection<TPacketID, PacketID_KeepAlive>> Client_t;
+        typedef PacketSendInfo                                             PacketInfo_t;
+        typedef std::pair<Client_t, PacketInfo_t>                          OwnedMessage_t;
 
     public:
         /// Constructor: Specify Owner, connect to context, transfer the socket
@@ -48,9 +49,17 @@ namespace AWEngine::Packet::Util
             Connecting,
             Connected
         };
+
+        typedef std::chrono::system_clock::time_point TimePoint_t;
+
     private:
         const PacketDirection m_Direction;
-        bool m_IsConnecting = false;
+        bool                  m_IsConnecting  = false;
+
+        uint64_t    m_LastKeepAliveValue      = 0;
+        TimePoint_t m_LastKeepAlive           = std::chrono::system_clock::now();
+        TimePoint_t m_LastReceivedMessageTime = m_LastKeepAlive;
+        TimePoint_t m_LastSentMessageTime     = m_LastKeepAlive;
 
         // Each connection has a unique socket to a remote
         asio::ip::tcp::socket m_Socket;
@@ -71,6 +80,10 @@ namespace AWEngine::Packet::Util
     public:
         [[nodiscard]] inline asio::ip::tcp::endpoint RemoteEndpoint() const noexcept { return IsConnected() ? m_Socket.remote_endpoint() : asio::ip::tcp::endpoint{}; }
         [[nodiscard]] inline asio::ip::tcp::endpoint LocalEndpoint()  const noexcept { return IsConnected() ? m_Socket.local_endpoint() : asio::ip::tcp::endpoint{}; }
+    public:
+        [[nodiscard]] inline const TimePoint_t& LastKeepAlive()           const noexcept { return m_LastKeepAlive; }
+        [[nodiscard]] inline const TimePoint_t& LastReceivedMessageTime() const noexcept { return m_LastReceivedMessageTime; }
+        [[nodiscard]] inline const TimePoint_t& LastSentMessageTime()     const noexcept { return m_LastSentMessageTime; }
 
     public:
         void ConnectToClient();
@@ -79,8 +92,8 @@ namespace AWEngine::Packet::Util
         void Disconnect();
 
     public:
-        inline void Send(const Packet::IPacket<TPacketEnum>& packet);
-        inline void Send(const std::unique_ptr<Packet::IPacket<TPacketEnum>>& packet)
+        inline void Send(const Packet::IPacket<TPacketID>& packet);
+        inline void Send(const std::unique_ptr<Packet::IPacket<TPacketID>>& packet)
         {
             if(packet)
                 Send(*packet);
@@ -103,12 +116,21 @@ namespace AWEngine::Packet::Util
 
         /// Once a full message is received, add it to the incoming queue
         void AddToIncomingMessageQueue();
+
+    // Information about number of processed packets.
+    // For statistics.
+    private:
+        std::size_t m_ReceivedPacketCount = 0;
+        std::size_t m_SentPacketCount = 0;
+    public:
+        [[nodiscard]] inline std::size_t ReceivedPacketCount() const noexcept { return m_ReceivedPacketCount; }
+        [[nodiscard]] inline std::size_t SentPacketCount()     const noexcept { return m_SentPacketCount; }
     };
 }
 namespace AWEngine::Packet::Util
 {
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::WriteHeader()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::WriteHeader()
     {
         if(!IsConnected())
             throw std::runtime_error("Not Connected - WriteHeader()");
@@ -135,6 +157,9 @@ namespace AWEngine::Packet::Util
                         // Remove it from the outgoing message queue
                         m_MessagesOut.pop_front();
 
+                        m_LastSentMessageTime = std::chrono::system_clock::now();
+                        m_SentPacketCount++;
+
                         // If the queue is not empty, there are more messages to send, so make this happen by issuing the task to send the next header.
                         if(!m_MessagesOut.empty())
                             WriteHeader();
@@ -151,8 +176,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::WriteBody()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::WriteBody()
     {
         // If this function is called, a header has just been sent, and that header indicated a body existed for this message.
         // Fill a transmission buffer with the body data, and send it!
@@ -165,6 +190,9 @@ namespace AWEngine::Packet::Util
                 {
                     // Sending was successful, so we are done with the message and remove it from the queue
                     m_MessagesOut.pop_front();
+
+                    m_LastSentMessageTime = std::chrono::system_clock::now();
+                    m_SentPacketCount++;
 
                     // If the queue still has messages in it, then issue the task to send the next messages' header.
                     if(!m_MessagesOut.empty())
@@ -180,8 +208,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::ReadHeader()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::ReadHeader()
     {
         // If this function is called, we are expecting asio to wait until it receives enough bytes to form a header of a message.
         // We know the headers are a fixed size, so allocate a transmission buffer large enough to store it.
@@ -216,8 +244,8 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::ReadBody()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::ReadBody()
     {
         m_WipInMessage.Body.resize(m_WipInMessage.Header.Size);
 
@@ -250,12 +278,48 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::AddToIncomingMessageQueue()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::AddToIncomingMessageQueue()
     {
         OwnedMessage_t msg = OwnedMessage_t{ nullptr, m_WipInMessage };
         if(m_Direction == PacketDirection::ToClient) // Server's connection
             msg.first = this->shared_from_this();
+
+        m_LastReceivedMessageTime = std::chrono::system_clock::now();
+        m_ReceivedPacketCount++;
+
+        if(msg.second.Header.ID == PacketID_KeepAlive)
+        {
+            if(m_Direction == PacketDirection::ToServer) // Owned by client
+            {
+                m_LastKeepAlive = std::chrono::system_clock::now();
+
+                // Send back
+                if(msg.second.Header.Flags == PacketFlags{} && msg.second.Header.Size == sizeof(uint64_t))
+                {
+                    uint64_t payload = *reinterpret_cast<const uint64_t*>(msg.second.Body.data());
+                    Send(::AWEngine::Packet::Ping<TPacketID, PacketID_KeepAlive>(payload));
+                }
+            }
+
+            if(m_Direction == PacketDirection::ToClient) // Owned by server
+            {
+                if(msg.second.Header.Flags == PacketFlags{} && msg.second.Header.Size == sizeof(uint64_t))
+                {
+                    uint64_t payload = *reinterpret_cast<const uint64_t*>(msg.second.Body.data());
+                    if(payload == m_LastKeepAliveValue)
+                        m_LastKeepAlive = std::chrono::system_clock::now();
+                    else
+                        m_LastKeepAlive = TimePoint_t(); // Will cause it to drop in next KeepAlive check
+                }
+            }
+        }
+
+        if(m_Direction == PacketDirection::ToClient) // Owned by server
+        {
+            //TODO Add check for too many messages waiting to be processed (denial-of-service attack)
+        }
+
         m_MessagesIn.push_back(std::move(msg));
 
         // We must now prime the asio context to receive the next message.
@@ -264,8 +328,8 @@ namespace AWEngine::Packet::Util
         ReadHeader();
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::ConnectToClient()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::ConnectToClient()
     {
         if (m_Direction == PacketDirection::ToServer)
             throw std::runtime_error("Incorrect direction - Cannot connect to client from connection pointed towards server");
@@ -276,8 +340,8 @@ namespace AWEngine::Packet::Util
         }
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::ConnectToServer(const asio::ip::basic_resolver<asio::ip::tcp, asio::any_io_executor>::results_type& endpoints)
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::ConnectToServer(const asio::ip::basic_resolver<asio::ip::tcp, asio::any_io_executor>::results_type& endpoints)
     {
         if(m_Direction == PacketDirection::ToClient)
             throw std::runtime_error("Incorrect direction - Cannot connect to server from connection pointed towards client");
@@ -305,15 +369,15 @@ namespace AWEngine::Packet::Util
         );
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::Disconnect()
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::Disconnect()
     {
         if (IsConnected())
             asio::post(m_IoContext, [this]() { m_Socket.close(); });
     }
 
-    template<typename TPacketEnum>
-    void Connection<TPacketEnum>::Send(const IPacket<TPacketEnum>& packet)
+    template<typename TPacketID, TPacketID PacketID_KeepAlive>
+    void Connection<TPacketID, PacketID_KeepAlive>::Send(const IPacket<TPacketID>& packet)
     {
         if(!IsConnected())
             throw std::runtime_error("Not Connected - Send(packet)");
@@ -323,6 +387,18 @@ namespace AWEngine::Packet::Util
 
         packet.Write(info.Body);
         info.Header.Size = htobe16(info.Body.size()); // Swap from local to network endian
+
+        if(m_Direction == PacketDirection::ToClient)
+        {
+            if(info.Header.ID == PacketID_KeepAlive)
+            {
+                // Send back
+                if(info.Header.Flags == PacketFlags{} && info.Header.Size >= sizeof(uint64_t))
+                {
+                    m_LastKeepAliveValue = *reinterpret_cast<const uint64_t*>(info.Body.data());
+                }
+            }
+        }
 
         //TODO Compression
 
