@@ -39,3 +39,11 @@ Supported platforms are limited by ASIO C++ and [portable_endian.h](src/portable
 
 `OK` for Asio means that it should work.
 For more info, see [Asio's Supported Platforms](https://www.boost.org/doc/libs/develop/doc/html/boost_asio/using.html).
+
+# Limitations
+
+- Maximum 256 packet types in each direction
+- Some IDs for packets are reserved
+  - Ping and Pong packets must share same ID
+  - Universal ServerInfo (game communication initialization)
+  - Kick / Disconnect packets

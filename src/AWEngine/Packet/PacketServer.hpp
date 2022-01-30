@@ -5,6 +5,7 @@
 #include "IPacket.hpp"
 #include "ProtocolInfo.hpp"
 #include "Util/Connection.hpp"
+#include "ProtocolGameName.hpp"
 
 namespace AWEngine::Packet
 {
@@ -36,11 +37,18 @@ namespace AWEngine::Packet
         typedef std::function<Packet_ptr(PacketInfo_t&)> PacketParser_t; //THINK Convert to class?
 
     public:
-        PacketServer(PacketServerConfiguration config, PacketParser_t packetParser)
+        PacketServer(
+            PacketServerConfiguration config,
+            PacketParser_t            packetParser,
+            ProtocolGameName          gameName,
+            ProtocolGameVersion       gameVersion
+        )
         : m_Config(std::move(config)),
           m_Parser(std::move(packetParser)),
           m_Endpoint(asio::ip::tcp::endpoint(m_Config.IP, m_Config.Port)),
-          m_AsioAcceptor(m_IoContext, m_Endpoint) //TODO Multiple IPs (at least IPv4 and IPv6 at the same time)
+          m_AsioAcceptor(m_IoContext, m_Endpoint), //TODO Multiple IPs (at least IPv4 and IPv6 at the same time)
+          m_GameName(gameName),
+          m_GameVersion(gameVersion)
         {
             if(!m_Parser)
                 throw std::runtime_error("No parser provided");
@@ -60,6 +68,8 @@ namespace AWEngine::Packet
         PacketServerConfiguration m_Config;
         asio::ip::tcp::endpoint   m_Endpoint;
         PacketParser_t            m_Parser;
+        ProtocolGameName          m_GameName;
+        ProtocolGameVersion       m_GameVersion;
 
     public:
         [[nodiscard]] inline Packet_ptr ParsePacket(PacketInfo_t& info) { return m_Parser(info); }

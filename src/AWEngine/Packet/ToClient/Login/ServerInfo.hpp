@@ -8,9 +8,10 @@
 #   include <nlohmann/json.hpp>
 #endif
 
-#include <AWEngine/Packet/IPacket.hpp>
-#include <AWEngine/Packet/ProtocolInfo.hpp>
-#include <AWEngine/Packet/Util/LocaleInfo.hpp>
+#include "AWEngine/Packet/IPacket.hpp"
+#include "AWEngine/Packet/ProtocolInfo.hpp"
+#include "AWEngine/Packet/Util/LocaleInfo.hpp"
+#include "AWEngine/Packet/ProtocolGameName.hpp"
 
 namespace AWEngine::Packet::ToClient::Login
 {
@@ -83,35 +84,35 @@ namespace AWEngine::Packet::ToClient::Login
     {
     public:
         explicit ServerInfo(
-            std::array<char, 8> gameName,
-            uint32_t            protocolVersion,
+            ProtocolGameName    gameName,
+            ProtocolGameVersion gameVersion,
             std::string         jsonString
         )
             : IPacket<TPacketID>(PacketID),
               GameName(gameName),
-              ProtocolVersion(protocolVersion),
+              GameVersion(gameVersion),
               JsonString(std::move(jsonString))
         {
         }
 
 #ifdef AWE_PACKET_LIB_JSON
         explicit ServerInfo(
-            std::array<char, 8>   gameName,
-            uint32_t              protocolVersion,
+            ProtocolGameName      gameName,
+            ProtocolGameVersion   gameVersion,
             const nlohmann::json& json
         ) : ServerInfo(gameName, protocolVersion, json.dump()) {}
         explicit ServerInfo(const nlohmann::json& json) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, json) {}
 #endif
 
         explicit ServerInfo(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)
-            : IPacket<TPacketID>(PacketID, in)
+            : IPacket<TPacketID>(PacketID)
         {
-            in >> GameName >> ProtocolVersion >> JsonString;
+            in >> GameName >> GameVersion >> JsonString;
         }
 
     public:
-        std::array<char, 8> GameName;
-        uint32_t            ProtocolVersion;
+        ProtocolGameName    GameName;
+        ProtocolGameVersion GameVersion;
         std::string         JsonString;
 
 #ifdef AWE_PACKET_LIB_JSON
@@ -131,7 +132,7 @@ namespace AWEngine::Packet::ToClient::Login
     public:
         void Write(PacketBuffer &out) const override
         {
-            out << GameName << ProtocolVersion << JsonString;
+            out << GameName << GameVersion << JsonString;
         }
     };
 }

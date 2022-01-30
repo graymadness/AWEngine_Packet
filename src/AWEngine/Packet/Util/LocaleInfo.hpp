@@ -31,9 +31,9 @@ namespace AWEngine::Packet::Util
     public:
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "google-explicit-constructor"
-        LocaleInfo() noexcept : LanguageCode(), CountryCode() {}
-        LocaleInfo(LocaleDoubleChar languageCode, LocaleDoubleChar countryCode = LocaleDoubleChar()) noexcept : LanguageCode(languageCode), CountryCode(countryCode) {}
-        LocaleInfo(const std::string&) noexcept;
+        inline LocaleInfo() noexcept : LanguageCode(), CountryCode() {}
+        inline LocaleInfo(LocaleDoubleChar languageCode, LocaleDoubleChar countryCode = LocaleDoubleChar()) noexcept : LanguageCode(languageCode), CountryCode(countryCode) {}
+        inline LocaleInfo(const std::string&) noexcept;
 #pragma clang diagnostic pop
 
     // Utilities

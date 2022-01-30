@@ -35,7 +35,6 @@ namespace AWEngine::Packet
 
     public:
         explicit IPacket(TPacketID id) : ID(id) {}
-        explicit IPacket(TPacketID id, PacketBuffer& in) : ID(id) {}
 
         virtual ~IPacket() = default;
 

@@ -69,7 +69,9 @@ int main()
                 default:
                     throw std::runtime_error("Unknown packet with ID=" + std::to_string(int(info.Header.ID)));
             }
-        }
+        },
+        "AWE_TST",
+        0
     );
     server.OnClientConnect = [&](const PacketServer_t::Client_t& client) -> bool
     {
