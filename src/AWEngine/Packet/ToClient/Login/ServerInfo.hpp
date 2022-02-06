@@ -100,8 +100,7 @@ namespace AWEngine::Packet::ToClient::Login
             ProtocolGameName      gameName,
             ProtocolGameVersion   gameVersion,
             const nlohmann::json& json
-        ) : ServerInfo(gameName, protocolVersion, json.dump()) {}
-        explicit ServerInfo(const nlohmann::json& json) : ServerInfo(ProtocolInfo::GameName, ProtocolInfo::ProtocolVersion, json) {}
+        ) : ServerInfo(gameName, gameVersion, json.dump()) {}
 #endif
 
         explicit ServerInfo(PacketBuffer& in) // NOLINT(cppcoreguidelines-pro-type-member-init)

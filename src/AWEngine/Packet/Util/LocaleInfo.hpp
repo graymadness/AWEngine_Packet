@@ -63,11 +63,12 @@ namespace AWEngine::Packet::Util
 #ifdef AWE_PACKET_LIB_JSON
 namespace nlohmann
 {
+    template<>
     struct adl_serializer<AWEngine::Packet::Util::LocaleInfo>
     {
         static void to_json(json& j, const AWEngine::Packet::Util::LocaleInfo& value);
         static void from_json(const json& j, AWEngine::Packet::Util::LocaleInfo& value);
-    }
+    };
 }
 #endif
 

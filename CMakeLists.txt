@@ -56,11 +56,11 @@ if(TARGET nlohmann_json)
         target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_LIB_JSON=ON)
         target_link_libraries(AWEngine_Packet nlohmann_json)
     else() # NOT AWE_PACKET_LIB_JSON
-        message(WARNING "nlohmann's JSON library detected but not used, consider setting AWE_PACKET_JSON=ON")
+        message(WARNING "nlohmann's JSON library detected but not used, consider setting AWE_PACKET_LIB_JSON=ON")
     endif()
 else() # NOT TARGET nlohmann_json
     if(AWE_PACKET_LIB_JSON)
-        message(WARNING "nlohmann's JSON library not found but requested, either add target `nlohmann_json` or set AWE_PACKET_JSON=OFF")
+        message(WARNING "nlohmann's JSON library not found but requested, either add target `nlohmann_json` or set AWE_PACKET_LIB_JSON=OFF")
     endif()
 endif()
 
