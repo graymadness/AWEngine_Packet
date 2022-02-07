@@ -80,7 +80,10 @@ namespace AWEngine::Packet
         ProtocolGameVersion       m_GameVersion;
 
     public:
-        [[nodiscard]] inline Packet_ptr ParsePacket(Util::PacketSendInfo& info) { return m_Parser(info); }
+        [[nodiscard]] inline const PacketServerConfiguration& Config() const noexcept { return m_Config; }
+
+    public:
+        [[nodiscard]] inline Packet_ptr ParsePacket(Util::PacketSendInfo& info) { return m_Parser ? m_Parser(info) : nullptr; }
 
     private:
         // Thread Safe Queue for incoming message packets
