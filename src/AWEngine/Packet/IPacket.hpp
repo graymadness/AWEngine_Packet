@@ -17,7 +17,7 @@ namespace AWEngine::Packet
         static_assert(sizeof(PacketFlags) == 1);
 
     public:
-        TPacketID ID;
+        TPacketID   ID;
         PacketFlags Flags;
         uint16_t    Size;
     };

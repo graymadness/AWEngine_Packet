@@ -23,6 +23,7 @@ namespace AWEngine::Packet
 
     template<
         typename TPacketID,
+        typename TPacketID_Receive,
         TPacketID PacketID_Ping = TPacketID(0xF0u),
         TPacketID PacketID_Kick = TPacketID(0xFFu),
         TPacketID PacketID_ServerInfo = TPacketID(0xF1u)
@@ -35,11 +36,11 @@ namespace AWEngine::Packet
 
         typedef Util::Connection<TPacketID, PacketID_Ping, PacketID_ServerInfo> Connection_t;
         typedef typename Connection_t::Connection_ptr                           Connection_ptr;
-        typedef typename Connection_t::PacketInfo_t                             PacketInfo_t;
         typedef std::unique_ptr<IPacket<TPacketID>>                             Packet_ptr;
+        typedef std::unique_ptr<IPacket<TPacketID_Receive>>                     Packet_Receive_ptr;
         typedef typename Connection_t::OwnedMessage_t                           OwnedMessage_t;
 
-        typedef std::function<Packet_ptr(PacketInfo_t&)> PacketParser_t; //THINK Convert to class?
+        typedef std::function<Packet_Receive_ptr(Util::PacketSendInfo&)> PacketParser_t; //THINK Convert to class?
 
     public:
         PacketServer(
@@ -59,11 +60,11 @@ namespace AWEngine::Packet
                 throw std::runtime_error("No parser provided");
 
             if(PacketID_Ping != TPacketID(0xF0u))
-                std::cout << "Warning: Ping packet is non-standard ID" << std::endl;
+                std::cerr << "Warning: Ping packet has non-standard ID" << std::endl;
             if(PacketID_Kick != TPacketID(0xFFu))
-                std::cout << "Warning: Kick packet is non-standard ID" << std::endl;
+                std::cerr << "Warning: Kick packet has non-standard ID" << std::endl;
             if(PacketID_ServerInfo != TPacketID(0xF1u))
-                std::cout << "Warning: ServerInfo packet is non-standard ID" << std::endl;
+                std::cerr << "Warning: ServerInfo packet has non-standard ID" << std::endl;
         }
 
         ~PacketServer()
@@ -79,7 +80,7 @@ namespace AWEngine::Packet
         ProtocolGameVersion       m_GameVersion;
 
     public:
-        [[nodiscard]] inline Packet_ptr ParsePacket(PacketInfo_t& info) { return m_Parser(info); }
+        [[nodiscard]] inline Packet_ptr ParsePacket(Util::PacketSendInfo& info) { return m_Parser(info); }
 
     private:
         // Thread Safe Queue for incoming message packets
@@ -131,7 +132,7 @@ namespace AWEngine::Packet
         /// Called when a message arrives.
         /// Processed during `Update` not when received.
         /// Warning: Header flags are original (unprocessed) but the packet was already processed from network format.
-        std::function<void(const Connection_ptr&, PacketInfo_t&)> OnMessage;
+        std::function<void(const Connection_ptr&, Util::PacketSendInfo&)> OnMessage;
         /// Called when a message arrives and is processed into a packet.
         /// Processed during `Update` not when received.
         std::function<void(const Connection_ptr&, Packet_ptr&)> OnPacket;
@@ -140,8 +141,14 @@ namespace AWEngine::Packet
 
 namespace AWEngine::Packet
 {
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
-    bool PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Start()
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Ping,
+        TPacketID PacketID_Kick,
+        TPacketID PacketID_ServerInfo
+    >
+    bool PacketServer<TPacketID, TPacketID_Receive, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Start()
     {
         try
         {
@@ -164,8 +171,14 @@ namespace AWEngine::Packet
         return true;
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Stop()
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Ping,
+        TPacketID PacketID_Kick,
+        TPacketID PacketID_ServerInfo
+    >
+    void PacketServer<TPacketID, TPacketID_Receive, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Stop()
     {
         // Request the context to close
         m_IoContext.stop();
@@ -178,8 +191,14 @@ namespace AWEngine::Packet
         AWE_DEBUG_COUT("Server stopped!");
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::WaitForClientConnection()
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Ping,
+        TPacketID PacketID_Kick,
+        TPacketID PacketID_ServerInfo
+    >
+    void PacketServer<TPacketID, TPacketID_Receive, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::WaitForClientConnection()
     {
         // Prime context with an instruction to wait until a socket connects.
         // This is the purpose of an "acceptor" object.
@@ -232,8 +251,14 @@ namespace AWEngine::Packet
         );
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Send(const Connection_ptr& client, const IPacket<TPacketID>& packet)
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Ping,
+        TPacketID PacketID_Kick,
+        TPacketID PacketID_ServerInfo
+    >
+    void PacketServer<TPacketID, TPacketID_Receive, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Send(const Connection_ptr& client, const IPacket<TPacketID>& packet)
     {
         // Check client is legitimate...
         if (client && client->IsConnected())
@@ -255,8 +280,14 @@ namespace AWEngine::Packet
         }
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Send_AllClients(const IPacket<TPacketID>& packet, const Connection_ptr& ignoredClient)
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Ping,
+        TPacketID PacketID_Kick,
+        TPacketID PacketID_ServerInfo
+    >
+    void PacketServer<TPacketID, TPacketID_Receive, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Send_AllClients(const IPacket<TPacketID>& packet, const Connection_ptr& ignoredClient)
     {
         bool invalidClientExists = false;
 
@@ -293,8 +324,14 @@ namespace AWEngine::Packet
             m_Connections.erase(std::remove(m_Connections.begin(), m_Connections.end(), nullptr), m_Connections.end());
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
-    std::size_t PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Update(size_t maximumMessages, bool waitForMessage)
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Ping,
+        TPacketID PacketID_Kick,
+        TPacketID PacketID_ServerInfo
+    >
+    std::size_t PacketServer<TPacketID, TPacketID_Receive, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::Update(size_t maximumMessages, bool waitForMessage)
     {
         if (waitForMessage)
             m_MessageInQueue.wait();
@@ -328,8 +365,14 @@ namespace AWEngine::Packet
         return messageIndex;
     }
 
-    template<typename TPacketID, TPacketID PacketID_Ping, TPacketID PacketID_Kick, TPacketID PacketID_ServerInfo>
-    void PacketServer<TPacketID, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::SendKeepAlive()
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Ping,
+        TPacketID PacketID_Kick,
+        TPacketID PacketID_ServerInfo
+    >
+    void PacketServer<TPacketID, TPacketID_Receive, PacketID_Ping, PacketID_Kick, PacketID_ServerInfo>::SendKeepAlive()
     {
         auto oldestKeepAlive = std::chrono::system_clock::now() - KeepAliveMaxDelay;
 

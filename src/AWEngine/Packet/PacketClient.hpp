@@ -39,6 +39,7 @@ namespace AWEngine::Packet
 
     template<
         typename TPacketID,
+        typename TPacketID_Receive,
         TPacketID PacketID_Pong       = TPacketID(0xF0u),
         TPacketID PacketID_Disconnect = TPacketID(0xFFu),
         TPacketID PacketID_Init       = TPacketID(0xF1u)
@@ -51,17 +52,18 @@ namespace AWEngine::Packet
 
         typedef Util::Connection<TPacketID, PacketID_Pong, PacketID_Init> Connection_t;
         typedef typename Connection_t::Connection_ptr                     Client_t;
-        typedef typename Connection_t::PacketInfo_t                       PacketInfo_t;
         typedef std::unique_ptr<IPacket<TPacketID>>                       Packet_ptr;
+        typedef std::unique_ptr<IPacket<TPacketID_Receive>>               Packet_Receive_ptr;
         typedef typename Connection_t::OwnedMessage_t                     OwnedMessage_t;
 
-        typedef std::function<Packet_ptr(PacketInfo_t&)> PacketParser_t; //THINK Convert to class?
+        typedef std::function<Packet_Receive_ptr(Util::PacketSendInfo&)> PacketParser_t; //THINK Convert to class?
 
     public:
         static const uint16_t DefaultPort = 10101;
 
     public:
         explicit PacketClient(
+            //TODO PacketParser
             ProtocolGameName    gameName,
             ProtocolGameVersion gameVersion
         )
@@ -69,9 +71,11 @@ namespace AWEngine::Packet
               m_GameVersion(gameVersion)
         {
             if(PacketID_Pong != TPacketID(0xF0u))
-                std::cout << "Warning: Pong packet is non-standard ID" << std::endl;
+                std::cerr << "Warning: Pong packet has non-standard ID" << std::endl;
             if(PacketID_Disconnect != TPacketID(0xFFu))
-                std::cout << "Warning: Disconnect packet is non-standard ID" << std::endl;
+                std::cerr << "Warning: Disconnect packet has non-standard ID" << std::endl;
+            if(PacketID_Init != TPacketID(0xF1u))
+                std::cerr << "Warning: Init packet has non-standard ID" << std::endl;
         }
         ~PacketClient()
         {
@@ -129,8 +133,14 @@ namespace AWEngine::Packet
 
 namespace AWEngine::Packet
 {
-    template<typename TPacketID, TPacketID PacketID_Pong, TPacketID PacketID_Disconnect, TPacketID PacketID_Init>
-    bool PacketClient<TPacketID, PacketID_Pong, PacketID_Disconnect, PacketID_Init>::Connect(const std::string& host, uint16_t port)
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Pong,
+        TPacketID PacketID_Disconnect,
+        TPacketID PacketID_Init
+    >
+    bool PacketClient<TPacketID, TPacketID_Receive, PacketID_Pong, PacketID_Disconnect, PacketID_Init>::Connect(const std::string& host, uint16_t port)
     {
         if(m_CurrentStatus != PacketClientStatus::Disconnected)
             throw std::runtime_error("Already connected");
@@ -179,8 +189,14 @@ namespace AWEngine::Packet
         return true;
     }
 
-    template<typename TPacketID, TPacketID PacketID_Pong, TPacketID PacketID_Disconnect, TPacketID PacketID_Init>
-    void PacketClient<TPacketID, PacketID_Pong, PacketID_Disconnect, PacketID_Init>::Disconnect()
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Pong,
+        TPacketID PacketID_Disconnect,
+        TPacketID PacketID_Init
+    >
+    void PacketClient<TPacketID, TPacketID_Receive, PacketID_Pong, PacketID_Disconnect, PacketID_Init>::Disconnect()
     {
         if(!IsConnected())
             return;
@@ -207,8 +223,14 @@ namespace AWEngine::Packet
         };
     }
 
-    template<typename TPacketID, TPacketID PacketID_Pong, TPacketID PacketID_Disconnect, TPacketID PacketID_Init>
-    void PacketClient<TPacketID, PacketID_Pong, PacketID_Disconnect, PacketID_Init>::DisconnectWithError()
+    template<
+        typename TPacketID,
+        typename TPacketID_Receive,
+        TPacketID PacketID_Pong,
+        TPacketID PacketID_Disconnect,
+        TPacketID PacketID_Init
+    >
+    void PacketClient<TPacketID, TPacketID_Receive, PacketID_Pong, PacketID_Disconnect, PacketID_Init>::DisconnectWithError()
     {
         if(!IsConnected())
             return;

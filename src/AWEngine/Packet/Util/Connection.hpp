@@ -22,6 +22,12 @@ namespace AWEngine::Packet::Util
         Play
     };
 
+    struct PacketSendInfo
+    {
+        PacketHeader<uint8_t> Header;
+        PacketBuffer          Body;
+    };
+
     template<
         typename TPacketID,
         TPacketID PacketID_KeepAlive,
@@ -30,15 +36,8 @@ namespace AWEngine::Packet::Util
     class Connection : public std::enable_shared_from_this<Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>>
     {
     public:
-        struct PacketSendInfo
-        {
-            PacketHeader<TPacketID> Header;
-            PacketBuffer            Body;
-        };
-
         typedef std::shared_ptr<Connection<TPacketID, PacketID_KeepAlive, PacketID_Init>> Connection_ptr;
-        typedef PacketSendInfo                                                            PacketInfo_t;
-        typedef std::pair<Connection_ptr, PacketInfo_t>                                   OwnedMessage_t;
+        typedef std::pair<Connection_ptr, PacketSendInfo>                                   OwnedMessage_t;
 
     public:
         /// Constructor: Specify Owner, connect to context, transfer the socket
