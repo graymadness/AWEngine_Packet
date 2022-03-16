@@ -1,8 +1,12 @@
 # AWEngine - Packet
+**Cancelled**
 
 Library which creates support for sending packets over network.
 
 Developer as part of AWEngine project but can be used independently.
+
+**AWEngine project itself was cancelled.
+This library is cancelled because I had problems setting aside the time for it.**
 
 ## Libraries
 
