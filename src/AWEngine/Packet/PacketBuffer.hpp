@@ -1,5 +1,5 @@
 #pragma once
-#include <AWEngine/Util/Core_Packet.hpp>
+#include <AWEngine/Packet/Util/Core_Packet.hpp>
 
 #include <climits>
 #include <cstdint>
@@ -9,18 +9,18 @@
 #include <cstring>
 #include <stdexcept>
 #include <iostream>
+#include <limits>
 
 #if CHAR_BIT != 8
     #error "unsupported char size"
 #endif
 
 #include <portable_endian.h>
-
-#include <AWEngine/Util/Asio.hpp>
+#include <asio.hpp>
 
 namespace AWEngine::Packet
 {
-    AWE_CLASS(PacketBuffer)
+    class PacketBuffer
     {
     public:
         static const std::size_t StreamEofBufferStep = 1024;
@@ -31,26 +31,7 @@ namespace AWEngine::Packet
     public:
         /// Empty buffer
         PacketBuffer() = default;
-        /// Read `in` until EOF is reached
-        explicit PacketBuffer(std::istream& in)
-        {
-            LoadAll(in);
-        }
-        /// Read `in` for specified number of chars
-        inline PacketBuffer(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
-        {
-            Load(in, byteLength, exceptionOnLessChars);
-        }
-        /// Read all available data from `socket`
-        explicit PacketBuffer(asio::ip::tcp::socket& socket)
-        {
-            LoadAvailable(socket);
-        }
-        /// Read `socket` for specified number of chars
-        inline PacketBuffer(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true)
-        {
-            Load(socket, byteLength, exceptionOnLessChars);
-        }
+        /*
         /// From byte array
         inline PacketBuffer(const uint8_t* array, std::size_t arraySize)
         {
@@ -68,6 +49,7 @@ namespace AWEngine::Packet
         /// From byte vector
         inline explicit PacketBuffer(const std::vector<char>& data) : PacketBuffer(reinterpret_cast<const uint8_t*>(data.data()), data.size()) { }
         inline explicit PacketBuffer(std::size_t byteCount, char c = '\0') : m_Data(byteCount, c) {}
+        */
 
     public:
         ~PacketBuffer() = default;
@@ -84,6 +66,7 @@ namespace AWEngine::Packet
         [[nodiscard]] inline uint32_t       size()  const noexcept { return m_Data.size() - m_StartOffset; }
         [[nodiscard]] inline bool           empty() const noexcept { return size() <= 0; }
                       inline void           reserve(std::size_t byteCount) { m_Data.reserve(byteCount); }
+                      inline void           resize(std::size_t byteCount)  { m_Data.resize(byteCount); }
     public:
         [[nodiscard]] inline const std::vector<uint8_t>& Buffer() const noexcept { return m_Data; }
     public:
@@ -91,17 +74,16 @@ namespace AWEngine::Packet
         inline const uint8_t& operator[](std::size_t index) const { return m_Data[index < 0 ? -1 : index + m_StartOffset]; };
 
     public:
-        inline friend std::ostream& operator<<(std::ostream& out, const PacketBuffer& buffer)
-        {
-            return out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-        }
         inline void Save(std::ostream& out) const
         {
             out.write(reinterpret_cast<const char*>(data()), size());
         }
-        inline void Save(asio::ip::tcp::socket& socket) const
+        /// Make sure there is enough space for `size()` bytes.
+        /// Returns pointer after the written data.
+        inline uint8_t* Save(uint8_t* outData) const
         {
-            asio::write(socket, asio::buffer(reinterpret_cast<const char*>(data()), size()));
+            std::copy(data(), data() + size(), outData);
+            return outData + size();
         }
 
     private:
@@ -120,47 +102,6 @@ namespace AWEngine::Packet
             m_StartOffset = 0;
             m_Data.clear();
         }
-    public:
-        void Load(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true);
-        std::size_t LoadAll(std::istream& in);
-        inline void ClearAndLoad(std::istream& in, uint32_t byteLength, bool exceptionOnLessChars = true)
-        {
-            Clear();
-            Load(in, byteLength, exceptionOnLessChars);
-        }
-        inline void ClearAndLoadAll(std::istream& in)
-        {
-            Clear();
-            LoadAll(in);
-        }
-    public:
-        void Load(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true);
-        inline std::size_t LoadAvailable(asio::ip::tcp::socket& socket)
-        {
-            std::size_t bytesAvailable = socket.available();
-            Load(socket, bytesAvailable);
-            return bytesAvailable;
-        }
-        inline void ClearAndLoad(asio::ip::tcp::socket& socket, uint32_t byteLength, bool exceptionOnLessChars = true)
-        {
-            Clear();
-            Load(socket, byteLength, exceptionOnLessChars);
-        }
-        inline void ClearAndLoadAvailable(asio::ip::tcp::socket& socket)
-        {
-            Clear();
-            LoadAvailable(socket);
-        }
-
-#ifdef AWE_PACKET_COROUTINE
-    public:
-        asio::awaitable<void> LoadAsync(asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::socket>& socket, uint32_t byteLength, bool exceptionOnLessChars = true);
-        inline asio::awaitable<void> ClearAndLoadAsync(asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::socket>& socket, uint32_t byteLength, bool exceptionOnLessChars = true)
-        {
-            Clear();
-            co_await LoadAsync(socket, byteLength, exceptionOnLessChars);
-        }
-#endif
 
     // Write
     public:

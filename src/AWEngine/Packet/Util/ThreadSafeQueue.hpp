@@ -4,7 +4,7 @@
 #include <deque> // double-ended <queue>
 #include <condition_variable>
 
-namespace AWEngine::Util
+namespace AWEngine::Packet::Util
 {
     template<typename T>
     class ThreadSafeQueue
@@ -37,13 +37,13 @@ namespace AWEngine::Util
 
     public:
         /// Read the first item without removing it from the queue
-        const T& peek_front()
+        [[nodiscard]] inline const T& peek_front()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.front();
         }
         /// Read the last item without removing it from the queue
-        const T& peek_back()
+        [[nodiscard]] inline const T& peek_back()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.back();
@@ -51,7 +51,7 @@ namespace AWEngine::Util
 
     public:
         /// Read the first item and remove it from the queue
-        T pop_front()
+        inline T pop_front()
         {
             std::scoped_lock lock(m_MutesQueue);
             auto t = std::move(m_Data.front());
@@ -59,7 +59,7 @@ namespace AWEngine::Util
             return std::move(t);
         }
         /// Read the last item and remove it from the queue
-        T pop_back()
+        inline T pop_back()
         {
             std::scoped_lock lock(m_MutesQueue);
             auto t = std::move(m_Data.back());
@@ -73,7 +73,7 @@ namespace AWEngine::Util
         inline void push_front(const T& item)
         {
             std::scoped_lock lock(m_MutesQueue);
-            m_Data.push_front(std::forward<T>(item));
+            m_Data.push_front(item);
 
             std::unique_lock<std::mutex> ul(m_MutexItemPushed);
             m_ItemPushed.notify_one();
@@ -93,7 +93,7 @@ namespace AWEngine::Util
         inline void push_back(const T& item)
         {
             std::scoped_lock lock(m_MutesQueue);
-            m_Data.push_back(std::forward<T>(item));
+            m_Data.push_back(item);
 
             std::unique_lock<std::mutex> ul(m_MutexItemPushed);
             m_ItemPushed.notify_one();
@@ -111,19 +111,19 @@ namespace AWEngine::Util
 
     public:
         /// Check whenever there are any items
-        bool empty()
+        [[nodiscard]] inline bool empty()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.empty();
         }
         /// Number of items in the queue
-        size_t size()
+        [[nodiscard]] inline size_t size()
         {
             std::scoped_lock lock(m_MutesQueue);
             return m_Data.size();
         }
         /// Remove all items
-        void clear()
+        inline void clear()
         {
             std::scoped_lock lock(m_MutesQueue);
             m_Data.clear();
@@ -132,7 +132,7 @@ namespace AWEngine::Util
     public:
         /// Wait for call of push_*()
         /// Blocks current thread
-        void wait()
+        inline void wait()
         {
             while (empty())
             {

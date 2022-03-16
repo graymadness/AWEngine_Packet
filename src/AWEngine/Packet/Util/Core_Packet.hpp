@@ -2,13 +2,23 @@
 
 #include <memory>
 #include <utility>
+#include <functional>
+#include <limits>
 
-#ifndef AWE_CLASS
-#   define AWE_CLASS(awe_name) class awe_name
-#endif
-
-#ifndef AWE_STRUCT
-#   define AWE_STRUCT(awe_name) struct awe_name
+// Debug breakpoint trigger
+#ifdef DEBUG
+#   if defined(_MSC_VER)
+#       define DEBUG_BREAK __debugbreak();
+#   elif defined(__GNUC__)
+#       define DEBUG_BREAK __builtin_trap();
+#   elif defined(SIGTRAP)
+#       define DEBUG_BREAK raise(SIGTRAP);
+#   else
+#       define DEBUG_BREAK do {} while(0);
+#       warning No way to raise debug break.
+#   endif
+#else
+#   define DEBUG_BREAK do {} while(0);
 #endif
 
 #ifndef AWE_CLASS_PTR
@@ -17,7 +27,7 @@
     typedef std::shared_ptr<const awe_name> awe_name##_conptr;\
     typedef std::weak_ptr<awe_name> awe_name##_wptr;\
     typedef std::weak_ptr<const awe_name> awe_name##_conwptr;\
-    AWE_CLASS(awe_name)
+    class awe_name
 #endif
 
 #ifndef AWE_STRUCT_PTR
@@ -26,21 +36,21 @@
     typedef std::shared_ptr<const awe_name> awe_name##_conptr;\
     typedef std::weak_ptr<awe_name> awe_name##_wptr;\
     typedef std::weak_ptr<const awe_name> awe_name##_conwptr;\
-    AWE_STRUCT(awe_name)
+    struct awe_name
 #endif
 
 #ifndef AWE_CLASS_UPTR
 #   define AWE_CLASS_UPTR(awe_name) class awe_name;\
     typedef std::unique_ptr<awe_name> awe_name##_uptr;\
     typedef std::unique_ptr<const awe_name> awe_name##_conuptr;\
-    AWE_CLASS(awe_name)
+    class awe_name
 #endif
 
 #ifndef AWE_STRUCT_UPTR
 #   define AWE_STRUCT_UPTR(awe_name) struct awe_name;\
     typedef std::unique_ptr<awe_name> awe_name##_uptr;\
     typedef std::unique_ptr<const awe_name> awe_name##_conuptr;\
-    AWE_STRUCT(awe_name)
+    struct awe_name
 #endif
 
 #ifndef AWE_ENUM
@@ -83,3 +93,28 @@
 #       define AWE_DEBUG_CERR(content)
 #   endif
 #endif
+
+
+namespace AWEngine::Packet
+{
+    struct NoCopy
+    {
+        NoCopy() = default;
+
+        NoCopy(const NoCopy&) = delete;
+        NoCopy& operator=(const NoCopy&) = delete;
+    };
+
+    struct NoMove
+    {
+        NoMove() = default;
+
+        NoMove(NoMove&&) noexcept = delete;
+        NoMove& operator=(NoMove&&) noexcept = delete;
+    };
+
+    struct NoCopyOrMove : public NoCopy, public NoMove
+    {
+
+    };
+}

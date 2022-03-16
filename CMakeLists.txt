@@ -4,7 +4,7 @@ project(AWEngine_Packet C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
-cmake_policy(SET CMP0077 NEW) # set() overrides option()
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # set() overrides option()
 
 add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>") # Define DEBUG in Debug builds
 
@@ -12,7 +12,7 @@ add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>") # Define DEBUG in Debug builds
 # Options
 #--------------------------------
 
-option(AWE_PACKET_COROUTINE "Enable support of coroutines (async networking)" ON)
+option(AWE_PACKET_LIB_JSON "Allows nlohmann's JSON for ServerInfo packet" OFF)
 
 #--------------------------------
 # Configuration
@@ -40,56 +40,47 @@ target_include_directories(AWEngine_Packet PUBLIC src/)
 
 target_link_libraries(AWEngine_Packet asio pthread)
 
-if(GCC)
-    target_link_libraries(AWEngine_Packet -static-libgcc -static-libstdc++ stdc++fs)
-endif()
+target_precompile_headers(AWEngine_Packet PUBLIC
+    src/AWEngine/Packet/Util/Core_Packet.hpp
+)
+
 if(WIN32)
     target_link_libraries(AWEngine_Packet ws2_32)
 endif()
 
 # JSON Support
 if(TARGET nlohmann_json)
-    message(NOTICE "nlohmann's JSON library detected")
+    if(AWE_PACKET_LIB_JSON)
+        message(NOTICE "Will use nlohmann's JSON library")
 
-    set(AWE_PACKET_LIB_JSON=ON)
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_LIB_JSON=ON)
-    target_link_libraries(AWEngine_Packet nlohmann_json)
+        target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_LIB_JSON=ON)
+        target_link_libraries(AWEngine_Packet nlohmann_json)
+    else() # NOT AWE_PACKET_LIB_JSON
+        message(WARNING "nlohmann's JSON library detected but not used, consider setting AWE_PACKET_LIB_JSON=ON")
+    endif()
+else() # NOT TARGET nlohmann_json
+    if(AWE_PACKET_LIB_JSON)
+        message(WARNING "nlohmann's JSON library not found but requested, either add target `nlohmann_json` or set AWE_PACKET_LIB_JSON=OFF")
+    endif()
 endif()
 
 # Protocol Version
 if(DEFINED AWE_PACKET_PROTOCOL_VERSION)
-    if(AWE_PACKET_PROTOCOL_VERSION MATCHES "^[0-9]+$")
-        message(NOTICE "Protocol Version set to ${AWE_PACKET_PROTOCOL_VERSION}")
-        target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_PROTOCOL_VERSION=${AWE_PACKET_PROTOCOL_VERSION})
-    else()
-        message(FATAL_ERROR "Invalid Protocol Version '${AWE_PACKET_PROTOCOL_VERSION}' - only numeric value is allowed")
+    if(AWE_PACKET_PROTOCOL_VERSION NOT MATCHES "^[0-9]+$")
+        message(FATAL_ERROR "Invalid Protocol Version '${AWE_PACKET_PROTOCOL_VERSION}' - can only be numeric value")
     endif()
+    message(NOTICE "Protocol Version set to ${AWE_PACKET_PROTOCOL_VERSION}")
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_PROTOCOL_VERSION=${AWE_PACKET_PROTOCOL_VERSION})
 endif()
 
 # Game Name
 if(DEFINED AWE_PACKET_GAME_NAME)
-    if(AWE_PACKET_GAME_NAME MATCHES "^[A-Z_]+$")
-        message(NOTICE "Protocol Version set to ${AWE_PACKET_GAME_NAME}")
-        target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_GAME_NAME="${AWE_PACKET_GAME_NAME}")
-    else()
-        message(FATAL_ERROR "Invalid Protocol Game Name '${AWE_PACKET_GAME_NAME}' - use only UPPER CASE letters")
+    if(AWE_PACKET_GAME_NAME NOT MATCHES "^[A-Z_]+$")
+        message(WARNING "Protocol Game Name '${AWE_PACKET_GAME_NAME}' should only contain upper-case A-Z letters and underscore")
     endif()
-endif()
 
-# Minimum / Maximum threads for Packet Server (used for IO Context)
-if(DEFINED AWE_PACKET_SERVER_THREAD_MIN)
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MIN=${AWE_PACKET_SERVER_THREAD_MIN})
-else()
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MIN=1)
-endif()
-if(DEFINED AWE_PACKET_SERVER_THREAD_MAX)
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MAX=${AWE_PACKET_SERVER_THREAD_MAX})
-else()
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_SERVER_THREAD_MAX=1)
-endif()
-
-if(AWE_PACKET_COROUTINE)
-    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_COROUTINE=1)
+    message(NOTICE "Default Protocol Game Name set to ${AWE_PACKET_GAME_NAME}")
+    target_compile_definitions(AWEngine_Packet PUBLIC AWE_PACKET_GAME_NAME="${AWE_PACKET_GAME_NAME}")
 endif()
 
 #--------------------------------

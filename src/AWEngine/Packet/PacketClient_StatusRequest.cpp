@@ -1,12 +1,23 @@
 #include "PacketClient.hpp"
 
-#include <AWEngine/Packet/PacketWrapper.hpp>
+#include "AWEngine/Packet/ToServer/Login/Init.hpp"
+#include "AWEngine/Packet/ToClient/Login/ServerInfo.hpp"
 
-#include <AWEngine/Packet/ToServer/Login/Init.hpp>
-#include <AWEngine/Packet/ToClient/Login/ServerInfo.hpp>
-
-namespace AWEngine
+namespace AWEngine::Packet
 {
+    /*
+    template<typename TPacketID>
+    void PacketClient<TPacketID>::GetServerStatusAsync(
+        const std::string& host,
+        uint16_t port,
+        std::function<void(::AWEngine::Packet::ToClient::Login::ServerInfo<TPacketID>)> infoCallback,
+        std::function<void()> errorcallback
+    )
+    {
+
+    }
+     */
+    /*
     ::AWEngine::Packet::ToClient::Login::ServerInfo PacketClient::GetServerStatus(const std::string& host, uint16_t port)
     {
         using tcp = asio::ip::tcp;
@@ -23,13 +34,17 @@ namespace AWEngine
         Packet::PacketBuffer tmpBuffer;
 
         // Send info request
-        Packet::PacketWrapper::WritePacket(socket, ::AWEngine::Packet::ToServer::Login::Init(::AWEngine::Packet::ToServer::Login::Init::NextStep::ServerInfo), tmpBuffer);
+        Packet::PacketWrapper::WritePacket(
+            socket,
+            ::AWEngine::Packet::ToServer::Login::Init(::AWEngine::Packet::ToServer::Login::Init::NextStep::ServerInfo, {}), //TODO Client locale
+            tmpBuffer
+        );
 
         // Read response
         {
-            Packet::PacketID_t packetID;
-            Packet::PacketWrapper::ReadPacket(socket, packetID, tmpBuffer);
-            switch(packetID)
+            Packet::PacketID_t PacketID;
+            Packet::PacketWrapper::ReadPacket(socket, PacketID, tmpBuffer);
+            switch(PacketID)
             {
                 default:
                     throw std::runtime_error("Received unexpected packet from the server");
@@ -42,4 +57,5 @@ namespace AWEngine
             }
         }
     }
+    */
 }

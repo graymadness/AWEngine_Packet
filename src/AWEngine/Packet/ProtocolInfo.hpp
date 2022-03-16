@@ -1,19 +1,14 @@
 #pragma once
-#include <AWEngine/Util/Core_Packet.hpp>
+#include <AWEngine/Packet/Util/Core_Packet.hpp>
 
 #include "PacketBuffer.hpp"
 
 namespace AWEngine::Packet
 {
-    AWE_CLASS_UPTR(IPacket);
-
-    typedef uint8_t PacketID_t;
-    static const std::size_t PacketID_Count = static_cast<std::size_t>(std::numeric_limits<PacketID_t>::max()) + 1;
+    template<typename TPacketID>
+    class IPacket;
 
     typedef uint32_t ProtocolVersion_t;
-
-    typedef std::function<IPacket_uptr(PacketBuffer&, PacketID_t)> PacketParser_t;
-    typedef std::array<PacketParser_t, PacketID_Count> PacketParserList_t;
 
     typedef uint32_t ProtocolVersion_t;
 
@@ -22,6 +17,7 @@ namespace AWEngine::Packet
 
     AWE_ENUM_FLAGS(PacketFlags, uint8_t)
     {
+        /// Data in the packet are compressed by ________
         Compressed  = 1u << 0u,
         Unused_Bit1 = 1u << 1u,
         Unused_Bit2 = 1u << 2u,
@@ -32,7 +28,7 @@ namespace AWEngine::Packet
         Unused_Bit7 = 1u << 7u,
     };
 
-    AWE_ENUM(Direction, uint8_t)
+    AWE_ENUM(PacketDirection, uint8_t)
     {
         /// From server to client
         ToClient = 0,
@@ -50,25 +46,5 @@ namespace AWEngine::Packet
 
         /// Multiple GameServer instances connected together
         Realm = 2
-    };
-
-    class ProtocolInfo
-    {
-    public:
-        ProtocolInfo() = delete;
-
-    public:
-        static const uint16_t DefaultPort = 10101;
-    public:
-        static const ProtocolVersion_t ProtocolVersion;
-        static const GameName_t GameName;
-
-    public:
-        static PacketParserList_t ParsersToClient;
-        static PacketParserList_t ParsersToServer;
-
-    public:
-        template<std::size_t N>
-        [[nodiscard]] static std::array<char, N> StringToArrayName(const std::string& strName);
     };
 }
